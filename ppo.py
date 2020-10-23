@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.distributions import Categorical
 
 class PPO(nn.Module):
-    def __init__(self, lstm_size, device=None):
+    def __init__(self, lstm_size, k_epoch, device=None):
         super(PPO, self).__init__()
         if device:
             self.device = device
@@ -37,7 +37,7 @@ class PPO(nn.Module):
         self.optimizer = optim.Adam(self.parameters(), lr=0.0002)
 
         self.gamma = 0.98
-        self.K_epoch = 2
+        self.K_epoch = k_epoch
         self.lmbda = 0.95
         self.eps_clip = 0.1
         
@@ -179,7 +179,8 @@ class PPO(nn.Module):
 
                 surr1 = ratio * advantage
                 surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-                loss = -torch.min(surr1, surr2) + F.smooth_l1_loss(v, td_target.detach())
+                entropy = -pi*torch.log(pi+ 1e-8)
+                loss = -torch.min(surr1, surr2) + F.smooth_l1_loss(v, td_target.detach()) - 0.003*entropy
 
                 self.optimizer.zero_grad()
                 loss.mean().backward()
