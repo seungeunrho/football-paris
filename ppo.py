@@ -18,12 +18,20 @@ class PPO(nn.Module):
         self.fc_left = nn.Linear(5,64)
         self.fc_right  = nn.Linear(5,64)
         self.fc_cat = nn.Linear(256,lstm_size)
+        self.norm_player = nn.LayerNorm(64)
+        self.norm_ball = nn.LayerNorm(64)
+        self.norm_left = nn.LayerNorm(64)
+        self.norm_right = nn.LayerNorm(64)
+        self.norm_cat = nn.LayerNorm(lstm_size)
+        
         self.lstm  = nn.LSTM(lstm_size,lstm_size)
 
         self.fc_pi1 = nn.Linear(lstm_size, 128)
         self.fc_pi2 = nn.Linear(128, 19)
+        self.norm_pi1 = nn.LayerNorm(128)
 
         self.fc_v1 = nn.Linear(lstm_size, 128)
+        self.norm_v1 = nn.LayerNorm(128)
         self.fc_v2 = nn.Linear(128, 1,  bias=False)
         self.pool = nn.AdaptiveAvgPool2d((1,None))
         self.optimizer = optim.Adam(self.parameters(), lr=0.0002)
@@ -33,30 +41,32 @@ class PPO(nn.Module):
         self.lmbda = 0.95
         self.eps_clip = 0.1
         
+        
+        
     def forward(self, state_dict):
         player_state = state_dict["player"]          
         ball_state = state_dict["ball"]              
         left_team_state = state_dict["left_team"]    
         right_team_state = state_dict["right_team"]  
 
-        player_embed = F.relu(self.fc_player(player_state))
-        ball_embed = F.relu(self.fc_ball(ball_state))
-        left_team_embed = F.relu(self.fc_left(left_team_state))
-        right_team_embed = F.relu(self.fc_right(right_team_state))
+        player_embed = F.relu(self.norm_player(self.fc_player(player_state)))
+        ball_embed = F.relu(self.norm_ball(self.fc_ball(ball_state)))
+        left_team_embed = F.relu(self.norm_left(self.fc_left(left_team_state)))
+        right_team_embed = F.relu(self.norm_right(self.fc_right(right_team_state)))
         
         left_team_embed = self.pool(left_team_embed).squeeze(2)
         right_team_embed = self.pool(right_team_embed).squeeze(2)
 
         cat = torch.cat([player_embed, ball_embed, left_team_embed,  right_team_embed], 2)
-        cat = F.relu(self.fc_cat(cat))
+        cat = F.relu(self.norm_cat(self.fc_cat(cat)))
         h_in = state_dict["hidden"]
         out, h_out = self.lstm(cat, h_in)
         
-        prob = F.relu(self.fc_pi1(out))
-        prob = F.relu(self.fc_pi2(prob))
+        prob = F.relu(self.norm_pi1(self.fc_pi1(out)))
+        prob = self.fc_pi2(prob)
         prob = F.softmax(prob, dim=2)
 
-        v = F.relu(self.fc_v1(out))
+        v = F.relu(self.norm_v1(self.fc_v1(out)))
         v = self.fc_v2(v)
 
         return prob, v, h_out
