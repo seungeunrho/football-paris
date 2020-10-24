@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 
 from FeatureEncoder import *
 from ppo import *
-from datetime import datetime, timedelta
+
 
 
 def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
@@ -19,8 +19,7 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
     model = PPO(arg_dict["lstm_size"], arg_dict["k_epoch"], device)
     model.load_state_dict(center_model.state_dict())
     model.to(device)
-    cur_time = datetime.now() + timedelta(hours = 9)
-    log_dir = "logs/" + cur_time.strftime("[%m-%d]%H.%M.%S")
+    log_dir = arg_dict["log_dir"]
     writer = SummaryWriter(logdir=log_dir)
     optimization_step = 0
     n_game = 0
@@ -51,24 +50,30 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
             
             while summary_queue.qsize() > arg_dict["summary_game_window"]:
                 win, score, tot_reward, game_len = [], [], [], []
+                loop_t, forward_t, wait_t = [], [], []
                 
                 
                 for i in range(arg_dict["summary_game_window"]):
                     game_data = summary_queue.get()
                     n_game += 1
-                    a,b,c,d = game_data
+                    a,b,c,d,t1,t2,t3 = game_data
                     win.append(a)
                     score.append(b)
                     tot_reward.append(c)
                     game_len.append(d)
-                writer.add_scalar('game/win', float(np.mean(win)), n_game)
+                    loop_t.append(t1)
+                    forward_t.append(t2)
+                    wait_t.append(t3)
+                writer.add_scalar('game/win_rate', float(np.mean(win)), n_game)
                 writer.add_scalar('game/score', float(np.mean(score)), n_game)
                 writer.add_scalar('game/reward', float(np.mean(tot_reward)), n_game)
                 writer.add_scalar('game/game_len', float(np.mean(game_len)), n_game)
-                writer.add_scalar('train/win', float(optimization_step), n_game)
+                writer.add_scalar('train/step', float(optimization_step), n_game)
+                writer.add_scalar('time/loop', float(np.mean(loop_t)), n_game)
+                writer.add_scalar('time/forward', float(np.mean(forward_t)), n_game)
+                writer.add_scalar('time/wait', float(np.mean(wait_t)), n_game)
                 
-            _ = signal_queue.get()   
-                    
+            _ = signal_queue.get()             
             
         else:
             time.sleep(0.1)

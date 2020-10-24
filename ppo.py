@@ -41,18 +41,21 @@ class PPO(nn.Module):
         self.lmbda = 0.95
         self.eps_clip = 0.1
         
-        
-        
     def forward(self, state_dict):
         player_state = state_dict["player"]          
         ball_state = state_dict["ball"]              
         left_team_state = state_dict["left_team"]    
         right_team_state = state_dict["right_team"]  
 
-        player_embed = F.relu(self.norm_player(self.fc_player(player_state)))
-        ball_embed = F.relu(self.norm_ball(self.fc_ball(ball_state)))
-        left_team_embed = F.relu(self.norm_left(self.fc_left(left_team_state)))
-        right_team_embed = F.relu(self.norm_right(self.fc_right(right_team_state)))
+#         player_embed = F.relu(self.norm_player(self.fc_player(player_state)))
+#         ball_embed = F.relu(self.norm_ball(self.fc_ball(ball_state)))
+#         left_team_embed = F.relu(self.norm_left(self.fc_left(left_team_state)))
+#         right_team_embed = F.relu(self.norm_right(self.fc_right(right_team_state)))
+        
+        player_embed = self.norm_player(self.fc_player(player_state))
+        ball_embed = self.norm_ball(self.fc_ball(ball_state))
+        left_team_embed = self.norm_left(self.fc_left(left_team_state))
+        right_team_embed = self.norm_right(self.fc_right(right_team_state))
         
         left_team_embed = self.pool(left_team_embed).squeeze(2)
         right_team_embed = self.pool(right_team_embed).squeeze(2)

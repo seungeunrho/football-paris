@@ -17,14 +17,12 @@ from datetime import datetime, timedelta
 
 def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
     print("actor {} started".format(actor_num))
-    #11_vs_11_easy_stochastic
-    #academy_empty_goal_close 300 epi done
-    #academy_empty_goal 450 epi done
     model = PPO(arg_dict["lstm_size"], arg_dict["k_epoch"])
     model.load_state_dict(center_model.state_dict())
     fe = FeatureEncoder()
     
-    env = football_env.create_environment(env_name="11_vs_11_stochastic", representation="raw", stacked=False, logdir='/tmp/football', write_goal_dumps=False, write_full_episode_dumps=False, render=False)
+    env = football_env.create_environment(env_name=arg_dict["env"], representation="raw", stacked=False, logdir='/tmp/football', \
+                                          write_goal_dumps=False, write_full_episode_dumps=False, render=False)
     n_epi = 0
     rollout = []
     while True:
@@ -38,12 +36,16 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
         h_out = (torch.zeros([1, 1, arg_dict["lstm_size"]], dtype=torch.float), 
                  torch.zeros([1, 1, arg_dict["lstm_size"]], dtype=torch.float))
         
+        loop_t, forward_t, wait_t = 0.0, 0.0, 0.0
+        
         while not done:
-            t1 = time.time()
+            init_t = time.time()
             while signal_queue.qsize() > 0:
                 time.sleep(0.02)
             else:
                 model.load_state_dict(center_model.state_dict())
+            wait_t += time.time() - init_t
+            
                 
             obs = env.observation()
             state_dict = fe.encode(obs[0])
@@ -62,8 +64,11 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
               "hidden" : h_in
             }
             
+            t1 = time.time()
+            
             with torch.no_grad():
                 prob, _, h_out = model(state_dict_tensor)
+            forward_t += time.time()-t1 
             m = Categorical(prob)
             a = m.sample().item()
 
@@ -91,11 +96,14 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             steps += 1
             score += rew
             tot_reward += fin_r
+            
+            loop_t += time.time()-init_t
 
             if done:
                 if score > 0:
                     win = 1
-                summary_data = (win, score, tot_reward, steps)
+                
+                summary_data = (win, score, tot_reward, steps, loop_t/steps, forward_t/steps, wait_t/steps)
                 summary_queue.put(summary_data)
 #                 if n_epi % 4 == 0 and actor_num == 0:
 #                     print("%d, Done, Step %d win: %d, score: %d" % (n_epi, steps, win, score))
