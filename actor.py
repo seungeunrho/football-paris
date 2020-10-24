@@ -38,6 +38,8 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
         
         loop_t, forward_t, wait_t = 0.0, 0.0, 0.0
         
+        obs = env.observation()
+        
         while not done:
             init_t = time.time()
             while signal_queue.qsize() > 0:
@@ -46,13 +48,14 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
                 model.load_state_dict(center_model.state_dict())
             wait_t += time.time() - init_t
             
-                
-            obs = env.observation()
+            
             state_dict = fe.encode(obs[0])
             player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
             ball_state = torch.from_numpy(state_dict["ball"]).float().unsqueeze(0).unsqueeze(0)
             left_team_state = torch.from_numpy(state_dict["left_team"]).float().unsqueeze(0).unsqueeze(0)
+            left_closest_state = torch.from_numpy(state_dict["left_closest"]).float().unsqueeze(0).unsqueeze(0)
             right_team_state = torch.from_numpy(state_dict["right_team"]).float().unsqueeze(0).unsqueeze(0)
+            right_closest_state = torch.from_numpy(state_dict["right_closest"]).float().unsqueeze(0).unsqueeze(0)
             
             h_in = h_out
 
@@ -60,7 +63,9 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
               "player" : player_state,
               "ball" : ball_state,
               "left_team" : left_team_state,
+              "left_closest" : left_closest_state,
               "right_team" : right_team_state,
+              "right_closest" : right_closest_state,
               "hidden" : h_in
             }
             
@@ -90,8 +95,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             if len(rollout) == arg_dict["rollout_len"]:
                 data_queue.put(rollout)
                 rollout = []
-                
-            state_dict = state_prime_dict
 
             steps += 1
             score += rew

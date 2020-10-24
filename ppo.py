@@ -15,13 +15,17 @@ class PPO(nn.Module):
 
         self.fc_player = nn.Linear(17,64)
         self.fc_ball = nn.Linear(18,64)
-        self.fc_left = nn.Linear(5,64)
-        self.fc_right  = nn.Linear(5,64)
-        self.fc_cat = nn.Linear(256,lstm_size)
+        self.fc_left = nn.Linear(7,64)
+        self.fc_right  = nn.Linear(7,64)
+        self.fc_left_closest = nn.Linear(7,32)
+        self.fc_right_closest = nn.Linear(7,32)
+        self.fc_cat = nn.Linear(256+64,lstm_size)
         self.norm_player = nn.LayerNorm(64)
         self.norm_ball = nn.LayerNorm(64)
         self.norm_left = nn.LayerNorm(64)
+        self.norm_left_closest = nn.LayerNorm(32)
         self.norm_right = nn.LayerNorm(64)
+        self.norm_right_closest = nn.LayerNorm(32)
         self.norm_cat = nn.LayerNorm(lstm_size)
         
         self.lstm  = nn.LSTM(lstm_size,lstm_size)
@@ -44,8 +48,10 @@ class PPO(nn.Module):
     def forward(self, state_dict):
         player_state = state_dict["player"]          
         ball_state = state_dict["ball"]              
-        left_team_state = state_dict["left_team"]    
+        left_team_state = state_dict["left_team"]
+        left_closest_state = state_dict["left_closest"]
         right_team_state = state_dict["right_team"]  
+        right_closest_state = state_dict["right_closest"]
 
 #         player_embed = F.relu(self.norm_player(self.fc_player(player_state)))
 #         ball_embed = F.relu(self.norm_ball(self.fc_ball(ball_state)))
@@ -55,12 +61,14 @@ class PPO(nn.Module):
         player_embed = self.norm_player(self.fc_player(player_state))
         ball_embed = self.norm_ball(self.fc_ball(ball_state))
         left_team_embed = self.norm_left(self.fc_left(left_team_state))
+        left_closest_embed = self.norm_left_closest(self.fc_left_closest(left_closest_state))
         right_team_embed = self.norm_right(self.fc_right(right_team_state))
+        right_closest_embed = self.norm_right_closest(self.fc_right_closest(right_closest_state))
         
         left_team_embed = self.pool(left_team_embed).squeeze(2)
         right_team_embed = self.pool(right_team_embed).squeeze(2)
 
-        cat = torch.cat([player_embed, ball_embed, left_team_embed,  right_team_embed], 2)
+        cat = torch.cat([player_embed, ball_embed, left_team_embed, right_team_embed, left_closest_embed, right_closest_embed], 2)
         cat = F.relu(self.norm_cat(self.fc_cat(cat)))
         h_in = state_dict["hidden"]
         out, h_out = self.lstm(cat, h_in)
@@ -76,14 +84,16 @@ class PPO(nn.Module):
 
     def make_batch(self, data):
         # data = [tr1, tr2, ..., tr10] * batch_size
-        s_player_batch, s_ball_batch, s_left_batch, s_right_batch =  [], [], [], []
-        s_player_prime_batch, s_ball_prime_batch, s_left_prime_batch, s_right_prime_batch =  [], [], [], []
+        s_player_batch, s_ball_batch, s_left_batch, s_left_closest_batch, s_right_batch, s_right_closest_batch=  [], [], [], [], [], []
+        s_player_prime_batch, s_ball_prime_batch, s_left_prime_batch, s_left_closest_prime_batch, \
+                                                  s_right_prime_batch, s_right_closest_prime_batch =  [], [], [], [], [], []
         h1_in_batch, h2_in_batch, h1_out_batch, h2_out_batch = [], [], [], []
         a_batch, r_batch, prob_a_batch, done_batch = [], [], [], []
         
         for rollout in data:
-            s_player_lst, s_ball_lst, s_left_lst, s_right_lst =  [], [], [], []
-            s_player_prime_lst, s_ball_prime_lst, s_left_prime_lst, s_right_prime_lst =  [], [], [], []
+            s_player_lst, s_ball_lst, s_left_lst, s_left_closest_lst, s_right_lst, s_right_closest_lst =  [], [], [], [], [], []
+            s_player_prime_lst, s_ball_prime_lst, s_left_prime_lst, s_left_closest_prime_lst, \
+                                                  s_right_prime_lst, s_right_closest_prime_lst =  [], [], [], [], [], []
             h1_in_lst, h2_in_lst, h1_out_lst, h2_out_lst = [], [], [], []
             a_lst, r_lst, prob_a_lst, done_lst = [], [], [], []
             
@@ -93,7 +103,9 @@ class PPO(nn.Module):
                 s_player_lst.append(s["player"])
                 s_ball_lst.append(s["ball"])
                 s_left_lst.append(s["left_team"])
+                s_left_closest_lst.append(s["left_closest"])
                 s_right_lst.append(s["right_team"])
+                s_right_closest_lst.append(s["right_closest"])
                 h1_in, h2_in = s["hidden"]
                 h1_in_lst.append(h1_in)
                 h2_in_lst.append(h2_in)
@@ -101,7 +113,9 @@ class PPO(nn.Module):
                 s_player_prime_lst.append(s_prime["player"])
                 s_ball_prime_lst.append(s_prime["ball"])
                 s_left_prime_lst.append(s_prime["left_team"])
+                s_left_closest_prime_lst.append(s_prime["left_closest"])
                 s_right_prime_lst.append(s_prime["right_team"])
+                s_right_closest_prime_lst.append(s_prime["right_closest"])
                 h1_out, h2_out = s_prime["hidden"]
                 h1_out_lst.append(h1_out)
                 h2_out_lst.append(h2_out)
@@ -115,14 +129,18 @@ class PPO(nn.Module):
             s_player_batch.append(s_player_lst)
             s_ball_batch.append(s_ball_lst)
             s_left_batch.append(s_left_lst)
+            s_left_closest_batch.append(s_left_closest_lst)
             s_right_batch.append(s_right_lst)
+            s_right_closest_batch.append(s_right_closest_lst)
             h1_in_batch.append(h1_in_lst[0])
             h2_in_batch.append(h2_in_lst[0])
             
             s_player_prime_batch.append(s_player_prime_lst)
             s_ball_prime_batch.append(s_ball_prime_lst)
             s_left_prime_batch.append(s_left_prime_lst)
+            s_left_closest_prime_batch.append(s_left_closest_prime_lst)
             s_right_prime_batch.append(s_right_prime_lst)
+            s_right_closest_prime_batch.append(s_right_closest_prime_lst)
             h1_out_batch.append(h1_out_lst[0])
             h2_out_batch.append(h2_out_lst[0])
 
@@ -135,7 +153,9 @@ class PPO(nn.Module):
           "player": torch.tensor(s_player_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "ball": torch.tensor(s_ball_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "left_team": torch.tensor(s_left_batch, dtype=torch.float, device=self.device).permute(1,0,2,3),
+          "left_closest": torch.tensor(s_left_closest_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "right_team": torch.tensor(s_right_batch, dtype=torch.float, device=self.device).permute(1,0,2,3),
+          "right_closest": torch.tensor(s_right_closest_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "hidden" : (torch.tensor(h1_in_batch, dtype=torch.float, device=self.device).squeeze(1).permute(1,0,2), 
                       torch.tensor(h2_in_batch, dtype=torch.float, device=self.device).squeeze(1).permute(1,0,2))
         }
@@ -144,7 +164,9 @@ class PPO(nn.Module):
           "player": torch.tensor(s_player_prime_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "ball": torch.tensor(s_ball_prime_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "left_team": torch.tensor(s_left_prime_batch, dtype=torch.float, device=self.device).permute(1,0,2,3),
+          "left_closest": torch.tensor(s_left_closest_prime_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "right_team": torch.tensor(s_right_prime_batch, dtype=torch.float, device=self.device).permute(1,0,2,3),
+          "right_closest": torch.tensor(s_right_closest_prime_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "hidden" : (torch.tensor(h1_out_batch, dtype=torch.float, device=self.device).squeeze(1).permute(1,0,2), 
                       torch.tensor(h2_out_batch, dtype=torch.float, device=self.device).squeeze(1).permute(1,0,2))
         }
@@ -159,6 +181,8 @@ class PPO(nn.Module):
     
 
     def train_net(self, data):
+        loss_lst = []
+        entropy_lst = []
         for i in range(self.K_epoch):
             for mini_batch in data:
                 s, a, r, s_prime, done_mask, prob_a = mini_batch
@@ -182,9 +206,19 @@ class PPO(nn.Module):
 
                 surr1 = ratio * advantage
                 surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-                entropy = -pi*torch.log(pi+ 1e-8)
-                loss = -torch.min(surr1, surr2) + F.smooth_l1_loss(v, td_target.detach()) - 0.003*entropy
+                entropy = -torch.sum(pi*torch.log(pi+ 1e-8), dim=2, keepdim=True)
+                entropy = entropy.mean()
+                
+                surr_loss = -torch.min(surr1, surr2)
+                v_loss = F.smooth_l1_loss(v, td_target.detach())
+                loss = surr_loss + v_loss - 0.003*entropy
+                loss = loss.mean()
 
                 self.optimizer.zero_grad()
-                loss.mean().backward()
+                loss.backward()
                 self.optimizer.step()
+                
+                loss_lst.append(loss.item())
+                entropy_lst.append(entropy.item())
+        return np.mean(loss_lst), np.mean(entropy_lst) 
+                
