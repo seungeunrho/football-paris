@@ -25,7 +25,7 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
     n_game = 0
     last_saved_step = 0
     loss_lst, entropy_lst = [], []
-    save_interval = 1000
+    save_interval = 20000
     
     print("learner start")
     
