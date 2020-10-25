@@ -8,7 +8,6 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import torch.multiprocessing as mp 
 
-from FeatureEncoder import *
 from ppo import *
 from datetime import datetime, timedelta
 
@@ -19,7 +18,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
     print("actor {} started".format(actor_num))
     model = PPO(arg_dict["lstm_size"], arg_dict["k_epoch"])
     model.load_state_dict(center_model.state_dict())
-    fe = FeatureEncoder()
     
     env = football_env.create_environment(env_name=arg_dict["env"], representation="raw", stacked=False, logdir='/tmp/football', \
                                           write_goal_dumps=False, write_full_episode_dumps=False, render=False)
@@ -49,7 +47,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             wait_t += time.time() - init_t
             
             
-            state_dict = fe.encode(obs[0])
+            state_dict = model.fe.encode(obs[0])
             player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
             ball_state = torch.from_numpy(state_dict["ball"]).float().unsqueeze(0).unsqueeze(0)
             left_team_state = torch.from_numpy(state_dict["left_team"]).float().unsqueeze(0).unsqueeze(0)
@@ -79,10 +77,10 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
 
             prev_obs = obs
             obs, rew, done, info = env.step(a)
-            additional_r = fe.calc_additional_reward(prev_obs[0], obs[0])
+            additional_r = model.fe.calc_additional_reward(prev_obs[0], obs[0])
             fin_r = rew*3.0 + additional_r
             
-            state_prime_dict = fe.encode(obs[0])
+            state_prime_dict = model.fe.encode(obs[0])
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
