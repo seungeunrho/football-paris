@@ -7,18 +7,22 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
+from FeatureEncoder import FeatureEncoder
+
 class PPO(nn.Module):
     def __init__(self, lstm_size, k_epoch, device=None):
         super(PPO, self).__init__()
         if device:
             self.device = device
 
-        self.fc_player = nn.Linear(17,64)
-        self.fc_ball = nn.Linear(18,64)
-        self.fc_left = nn.Linear(7,64)
-        self.fc_right  = nn.Linear(7,64)
-        self.fc_left_closest = nn.Linear(7,32)
-        self.fc_right_closest = nn.Linear(7,32)
+        self.fe = FeatureEncoder()
+
+        self.fc_player = nn.Linear(self.fe.dims['player'], 64)
+        self.fc_ball = nn.Linear(self.fe.dims['ball'], 64)
+        self.fc_left = nn.Linear(self.fe.dims['left_team'], 64)
+        self.fc_right  = nn.Linear(self.fe.dims['right_team'], 64)
+        self.fc_left_closest = nn.Linear(self.fe.dims['left_team_closest'], 32)
+        self.fc_right_closest = nn.Linear(self.fe.dims['right_team_closest'], 32)
         self.fc_cat = nn.Linear(256+64,lstm_size)
         self.norm_player = nn.LayerNorm(64)
         self.norm_ball = nn.LayerNorm(64)
