@@ -4,6 +4,14 @@ class FeatureEncoder:
     def __init__(self):
         self.active = -1
         self.player_pos_x, self.player_pos_y  = 0, 0
+        self.dims = {
+            'player':17,
+            'ball':18,
+            'left_team':7,
+            'left_team_closest':7,
+            'right_team':7,
+            'right_team_closest':7,
+        }
 
     def encode(self, obs):
         # -------- active player state ---------
