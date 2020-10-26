@@ -34,11 +34,11 @@ def state_to_tensor(state_dict, h_in):
 
 def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
     print("Actor process {} started".format(actor_num))
-    fe = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
+    fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
     rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
     imported_model = importlib.import_module("Model." + arg_dict["model"])
     
-    fe = fe.FeatureEncoder()
+    fe = fe_module.FeatureEncoder()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = imported_model.PPO(arg_dict, device)
     model.load_state_dict(center_model.state_dict())
@@ -91,7 +91,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             obs, rew, done, info = env.step(a)
             fin_r = rewarder.calc_reward(rew, prev_obs[0], obs[0])
             
-            state_prime_dict = model.fe.encode(obs[0])
+            state_prime_dict = fe.encode(obs[0])
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
