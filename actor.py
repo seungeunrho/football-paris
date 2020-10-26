@@ -18,6 +18,7 @@ def state_to_tensor(state_dict, h_in):
     left_closest_state = torch.from_numpy(state_dict["left_closest"]).float().unsqueeze(0).unsqueeze(0)
     right_team_state = torch.from_numpy(state_dict["right_team"]).float().unsqueeze(0).unsqueeze(0)
     right_closest_state = torch.from_numpy(state_dict["right_closest"]).float().unsqueeze(0).unsqueeze(0)
+    avail = torch.from_numpy(state_dict["avail"]).float().unsqueeze(0).unsqueeze(0)
 
     state_dict_tensor = {
       "player" : player_state,
@@ -26,6 +27,7 @@ def state_to_tensor(state_dict, h_in):
       "left_closest" : left_closest_state,
       "right_team" : right_team_state,
       "right_closest" : right_closest_state,
+      "avail" : avail,
       "hidden" : h_in
     }
     return state_dict_tensor
@@ -64,7 +66,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
         
         while not done:
             init_t = time.time()
-            print("step",steps)
             
             is_stopped = False
             while signal_queue.qsize() > 0:
@@ -81,14 +82,28 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             
             t1 = time.time()
             with torch.no_grad():
-                prob, _, h_out = model(state_dict_tensor)
+                a_prob, m_prob, _, h_out = model(state_dict_tensor)
             forward_t += time.time()-t1 
             
-            m = Categorical(prob)
-            a = m.sample().item()
+            a = Categorical(a_prob).sample().item()
+            
+            prob = 0
+            if a==0:
+                m, need_m = 0, 0
+                real_action = a
+                prob = a_prob[0][0][a].item()
+            elif a==1:
+                m = Categorical(m_prob).sample().item()
+                need_m = 1
+                real_action = m + 1
+                prob = a_prob[0][0][a].item() * m_prob[0][0][m].item()
+            else:
+                m, need_m = 0, 0
+                real_action = a + 7
+                prob = a_prob[0][0][a].item()
 
             prev_obs = obs
-            obs, rew, done, info = env.step(a)
+            obs, rew, done, info = env.step(real_action)
             fin_r = rewarder.calc_reward(rew, prev_obs[0], obs[0])
             
             state_prime_dict = fe.encode(obs[0])
@@ -98,7 +113,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             state_dict["hidden"] = (h1_in.numpy(), h2_in.numpy())
             state_prime_dict["hidden"] = (h1_out.numpy(), h2_out.numpy())
 
-            transition = (state_dict, a, fin_r, state_prime_dict, prob[0][0][a].item(), done)
+            transition = (state_dict, a, m, fin_r, state_prime_dict, prob, done, need_m)
             rollout.append(transition)
 
             if len(rollout) == arg_dict["rollout_len"]:

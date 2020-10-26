@@ -16,7 +16,6 @@ class FeatureEncoder:
         }
         return dims
 
-
     def encode(self, obs):
         self.player_num = obs['active']
         player_pos_x, player_pos_y = obs['left_team'][self.player_num]
@@ -38,16 +37,16 @@ class FeatureEncoder:
         ball_speed = np.linalg.norm(ball_direction)
         ball_owned = 0.0 
         if obs['ball_owned_team'] == -1:
-          ball_owned = 0.0
+            ball_owned = 0.0
         else:
-          ball_owned = 1.0
+            ball_owned = 1.0
         ball_owned_by_us = 0.0
         if obs['ball_owned_team'] == 0:
-          ball_owned_by_us = 1.0
+            ball_owned_by_us = 1.0
         elif obs['ball_owned_team'] == 1:
-          ball_owned_by_us = 0.0
+            ball_owned_by_us = 0.0
         else:
-          ball_owned_by_us = 0.0
+            ball_owned_by_us = 0.0
         ball_which_zone = self._encode_ball_which_zone(ball_x, ball_y) 
         ball_state = np.concatenate((obs['ball'], 
                                      np.array(ball_which_zone),
@@ -84,45 +83,75 @@ class FeatureEncoder:
         right_closest_idx = np.argmin(right_team_distance)
         right_closest_state = right_team_state[right_closest_idx]
         
+        avail = self._get_avail(obs)
         
-
         state_dict = {"player": player_state,
                       "ball": ball_state,
                       "left_team" : left_team_state,
                       "left_closest" : left_closest_state,
                       "right_team" : right_team_state,
-                      "right_closest" : right_closest_state}
+                      "right_closest" : right_closest_state,
+                      "avail" : avail}
 
         return state_dict
     
-    def calc_additional_reward(self, prev_obs, obs):
-        ball_x, ball_y, ball_z = obs['ball']
+    def _get_avail(self, obs):
+        avail = [1,1,1,1,1,1,1,1,1,1,1,1]
+        NO_OP, MOVE, LONG_PASS, HIGH_PASS, SHORT_PASS, SHOT, SPRINT, RELEASE_MOVE, \
+                                                      RELEASE_SPRINT, SLIDE, DRIBBLE, RELEASE_DRIBBLE = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 
-        ball_position_r = 0.0
-        if ball_x < -0.7 and (-0.3 < ball_y and ball_y < 0.3):
-            ball_position_r = -2.0
-        elif ball_x < -0.2 and (-0.42 < ball_y and ball_y < 0.42):
-            ball_position_r = -1.0
-        elif ball_x < 0.2 and (-0.42 < ball_y and ball_y < 0.42):
-            ball_position_r = 0.0
-        elif ball_x > 0.7 and (-0.3 < ball_y and ball_y < 0.3):
-            ball_position_r = 2.0
-        elif ball_x <=1.0 and (-0.42 < ball_y and ball_y < 0.42) :
-            ball_position_r = 1.0
-        else:
-            ball_position_r = 0.0
+#         # When opponents owning ball ...
+#         if obs['ball_owned_team'] == 1: # opponents owning ball
+#             avail[LONG_PASS], avail[HIGH_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0
+#         elif obs['ball_owned_team'] == -1: # no team owning ball 
+#             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0
+#         else:
+#             avail[SLIDE] = 0
             
-        # ball position 1 * 3000 * 0.02 = 60
+        # When opponents owning ball ...  conservative
+        if obs['ball_owned_team'] == 1: # opponents owning ball
+            avail[HIGH_PASS], avail[DRIBBLE] = 0, 0
+        elif obs['ball_owned_team'] == -1: # no team owning ball 
+            avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
+        else:
+            avail[SLIDE] = 0
+            
+        # Dealing with sticky actions
+        sticky_actions = obs['sticky_actions']
+        if sticky_actions[8] == 1:  # sprinting
+            avail[SPRINT] = 0
+        else:
+            avail[RELEASE_SPRINT] = 0
+            
+        if sticky_actions[9] == 1:  # dribbling
+            avail[DRIBBLE], avail[SLIDE] = 0, 0
+        else:
+            avail[RELEASE_DRIBBLE] = 0
+            
+        if np.sum(sticky_actions[:8]) == 0:
+            avail[RELEASE_MOVE] = 0
+            
         
-#         print("x", ball_x, "y", ball_y, "r", ball_position_r)
-       
-        left_yellow = np.sum(obs["left_team_yellow_card"]) -  np.sum(prev_obs["left_team_yellow_card"])
-        right_yellow = np.sum(obs["right_team_yellow_card"]) -  np.sum(prev_obs["right_team_yellow_card"])
-        yellow_r = right_yellow - left_yellow
+        # if too far, no shot
+        player_pos_x, player_pos_y = obs['left_team'][self.player_num]
+        if player_pos_x < 0.5 and obs['ball_owned_team'] == 0:
+            avail[SHOT] = 0
+            
         
-        reward = ball_position_r * 0.01 + yellow_r
+#         if obs['game_mode'] == 2:
+            
+#         0 = e_GameMode_Normal
+#         1 = e_GameMode_KickOff
+#         2 = e_GameMode_GoalKick
+#         3 = e_GameMode_FreeKick
+#         4 = e_GameMode_Corner
+#         5 = e_GameMode_ThrowIn
+#         6 = e_GameMode_Penalty
+
+            
+        return np.array(avail)
         
-        return reward
+        
     
         
     def _encode_ball_which_zone(self, ball_x, ball_y):
