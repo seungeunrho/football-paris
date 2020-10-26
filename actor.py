@@ -1,5 +1,5 @@
 import gfootball.env as football_env
-import time, pprint
+import time, pprint, importlib
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,15 +8,39 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import torch.multiprocessing as mp 
 
-from ppo import *
 from datetime import datetime, timedelta
 
 
+def state_to_tensor(state_dict, h_in):
+    player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
+    ball_state = torch.from_numpy(state_dict["ball"]).float().unsqueeze(0).unsqueeze(0)
+    left_team_state = torch.from_numpy(state_dict["left_team"]).float().unsqueeze(0).unsqueeze(0)
+    left_closest_state = torch.from_numpy(state_dict["left_closest"]).float().unsqueeze(0).unsqueeze(0)
+    right_team_state = torch.from_numpy(state_dict["right_team"]).float().unsqueeze(0).unsqueeze(0)
+    right_closest_state = torch.from_numpy(state_dict["right_closest"]).float().unsqueeze(0).unsqueeze(0)
+
+    state_dict_tensor = {
+      "player" : player_state,
+      "ball" : ball_state,
+      "left_team" : left_team_state,
+      "left_closest" : left_closest_state,
+      "right_team" : right_team_state,
+      "right_closest" : right_closest_state,
+      "hidden" : h_in
+    }
+    return state_dict_tensor
+    
 
 
 def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
-    print("actor {} started".format(actor_num))
-    model = PPO(arg_dict["lstm_size"], arg_dict["k_epoch"])
+    print("Actor process {} started".format(actor_num))
+    fe = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
+    rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
+    imported_model = importlib.import_module("Model." + arg_dict["model"])
+    
+    fe = fe.FeatureEncoder()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = imported_model.PPO(arg_dict, device)
     model.load_state_dict(center_model.state_dict())
     
     env = football_env.create_environment(env_name=arg_dict["env"], representation="raw", stacked=False, logdir='/tmp/football', \
@@ -40,45 +64,32 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
         
         while not done:
             init_t = time.time()
+            print("step",steps)
+            
+            is_stopped = False
             while signal_queue.qsize() > 0:
                 time.sleep(0.02)
-            else:
+                is_stopped = True
+            if is_stopped:
                 model.load_state_dict(center_model.state_dict())
+
             wait_t += time.time() - init_t
             
-            
-            state_dict = model.fe.encode(obs[0])
-            player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
-            ball_state = torch.from_numpy(state_dict["ball"]).float().unsqueeze(0).unsqueeze(0)
-            left_team_state = torch.from_numpy(state_dict["left_team"]).float().unsqueeze(0).unsqueeze(0)
-            left_closest_state = torch.from_numpy(state_dict["left_closest"]).float().unsqueeze(0).unsqueeze(0)
-            right_team_state = torch.from_numpy(state_dict["right_team"]).float().unsqueeze(0).unsqueeze(0)
-            right_closest_state = torch.from_numpy(state_dict["right_closest"]).float().unsqueeze(0).unsqueeze(0)
-            
             h_in = h_out
-
-            state_dict_tensor = {
-              "player" : player_state,
-              "ball" : ball_state,
-              "left_team" : left_team_state,
-              "left_closest" : left_closest_state,
-              "right_team" : right_team_state,
-              "right_closest" : right_closest_state,
-              "hidden" : h_in
-            }
+            state_dict = fe.encode(obs[0])
+            state_dict_tensor = state_to_tensor(state_dict, h_in)
             
             t1 = time.time()
-            
             with torch.no_grad():
                 prob, _, h_out = model(state_dict_tensor)
             forward_t += time.time()-t1 
+            
             m = Categorical(prob)
             a = m.sample().item()
 
             prev_obs = obs
             obs, rew, done, info = env.step(a)
-            additional_r = model.fe.calc_additional_reward(prev_obs[0], obs[0])
-            fin_r = rew*3.0 + additional_r
+            fin_r = rewarder.calc_reward(rew, prev_obs[0], obs[0])
             
             state_prime_dict = model.fe.encode(obs[0])
             
@@ -93,6 +104,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             if len(rollout) == arg_dict["rollout_len"]:
                 data_queue.put(rollout)
                 rollout = []
+                model.load_state_dict(center_model.state_dict())
 
             steps += 1
             score += rew

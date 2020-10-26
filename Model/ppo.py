@@ -7,45 +7,41 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
-from FeatureEncoder import FeatureEncoder
-
 class PPO(nn.Module):
-    def __init__(self, lstm_size, k_epoch, device=None):
+    def __init__(self, arg_dict, device=None):
         super(PPO, self).__init__()
         if device:
             self.device = device
 
-        self.fe = FeatureEncoder()
-
-        self.fc_player = nn.Linear(self.fe.dims['player'], 64)
-        self.fc_ball = nn.Linear(self.fe.dims['ball'], 64)
-        self.fc_left = nn.Linear(self.fe.dims['left_team'], 64)
-        self.fc_right  = nn.Linear(self.fe.dims['right_team'], 64)
-        self.fc_left_closest = nn.Linear(self.fe.dims['left_team_closest'], 32)
-        self.fc_right_closest = nn.Linear(self.fe.dims['right_team_closest'], 32)
-        self.fc_cat = nn.Linear(256+64,lstm_size)
+        self.fc_player = nn.Linear(arg_dict["feature_dims"]["player"],64)  
+        self.fc_ball = nn.Linear(arg_dict["feature_dims"]["ball"],64)
+        self.fc_left = nn.Linear(arg_dict["feature_dims"]["left_team"],64)
+        self.fc_right  = nn.Linear(arg_dict["feature_dims"]["right_team"],64)
+        self.fc_left_closest = nn.Linear(arg_dict["feature_dims"]["left_team_closest"],32)
+        self.fc_right_closest = nn.Linear(arg_dict["feature_dims"]["right_team_closest"],32)
+        self.fc_cat = nn.Linear(256+64,arg_dict["lstm_size"])
         self.norm_player = nn.LayerNorm(64)
         self.norm_ball = nn.LayerNorm(64)
         self.norm_left = nn.LayerNorm(64)
         self.norm_left_closest = nn.LayerNorm(32)
         self.norm_right = nn.LayerNorm(64)
         self.norm_right_closest = nn.LayerNorm(32)
-        self.norm_cat = nn.LayerNorm(lstm_size)
+        self.norm_cat = nn.LayerNorm(arg_dict["lstm_size"])
         
-        self.lstm  = nn.LSTM(lstm_size,lstm_size)
+        self.lstm  = nn.LSTM(arg_dict["lstm_size"],arg_dict["lstm_size"])
 
-        self.fc_pi1 = nn.Linear(lstm_size, 128)
+        self.fc_pi1 = nn.Linear(arg_dict["lstm_size"], 128)
         self.fc_pi2 = nn.Linear(128, 19)
         self.norm_pi1 = nn.LayerNorm(128)
 
-        self.fc_v1 = nn.Linear(lstm_size, 128)
+        self.fc_v1 = nn.Linear(arg_dict["lstm_size"], 128)
         self.norm_v1 = nn.LayerNorm(128)
         self.fc_v2 = nn.Linear(128, 1,  bias=False)
         self.pool = nn.AdaptiveAvgPool2d((1,None))
         self.optimizer = optim.Adam(self.parameters(), lr=0.0002)
 
         self.gamma = 0.98
-        self.K_epoch = k_epoch
+        self.K_epoch = arg_dict["k_epoch"]
         self.lmbda = 0.95
         self.eps_clip = 0.1
         
@@ -56,11 +52,6 @@ class PPO(nn.Module):
         left_closest_state = state_dict["left_closest"]
         right_team_state = state_dict["right_team"]  
         right_closest_state = state_dict["right_closest"]
-
-#         player_embed = F.relu(self.norm_player(self.fc_player(player_state)))
-#         ball_embed = F.relu(self.norm_ball(self.fc_ball(ball_state)))
-#         left_team_embed = F.relu(self.norm_left(self.fc_left(left_team_state)))
-#         right_team_embed = F.relu(self.norm_right(self.fc_right(right_team_state)))
         
         player_embed = self.norm_player(self.fc_player(player_state))
         ball_embed = self.norm_ball(self.fc_ball(ball_state))
@@ -185,8 +176,10 @@ class PPO(nn.Module):
     
 
     def train_net(self, data):
-        loss_lst = []
+        tot_loss_lst = []
+        pi_loss_lst = []
         entropy_lst = []
+        v_loss_lst = []
         for i in range(self.K_epoch):
             for mini_batch in data:
                 s, a, r, s_prime, done_mask, prob_a = mini_batch
@@ -211,18 +204,22 @@ class PPO(nn.Module):
                 surr1 = ratio * advantage
                 surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
                 entropy = -torch.sum(pi*torch.log(pi+ 1e-8), dim=2, keepdim=True)
-                entropy = entropy.mean()
-                
+
                 surr_loss = -torch.min(surr1, surr2)
                 v_loss = F.smooth_l1_loss(v, td_target.detach())
-                loss = surr_loss + v_loss - 0.003*entropy
+                entropy_loss = -0.0001*entropy
+#                 loss = surr_loss + v_loss + entropy_loss
+                loss = surr_loss + v_loss
                 loss = loss.mean()
-
+                
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
                 
-                loss_lst.append(loss.item())
-                entropy_lst.append(entropy.item())
-        return np.mean(loss_lst), np.mean(entropy_lst) 
+                tot_loss_lst.append(loss.item())
+                pi_loss_lst.append(surr_loss.mean().item())
+                v_loss_lst.append(v_loss.item())
+                entropy_lst.append(entropy.mean().item())
+                
+        return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst) 
                 
