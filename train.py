@@ -69,12 +69,12 @@ if __name__ == '__main__':
         "rollout_len": 20,
         "lstm_size" : 196,
         "k_epoch" : 3,
-        "summary_game_window" : 5,
+        "summary_game_window" : 10,
         "model_save_interval" : 100000,
         
         "encoder" : "raw_encoder",
         "rewarder" : "rewarder_se",
-        "model" : "ppo"
+        "model" : "ppo_conv1d"
     }
     
     main(arg_dict)
