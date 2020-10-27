@@ -24,25 +24,8 @@ def save_args(arg_dict):
     f = open(arg_dict["log_dir"]+"/args.json","w")
     f.write(args_info)
     f.close()
-
-if __name__ == '__main__':
-    # hyperparameters
-    arg_dict = {
-        "env": "11_vs_11_easy_stochastic",
-        "num_processes": 9,
-        "batch_size": 16,   
-        "buffer_size": 5,
-        "rollout_len": 20,
-        "lstm_size" : 196,
-        "k_epoch" : 3,
-        "summary_game_window" : 5,
-        "model_save_interval" : 30000,
-        
-        "encoder" : "raw_encoder",
-        "rewarder" : "rewarder_se",
-        "model" : "ppo"
-    }
     
+def main(arg_dict):
     cur_time = datetime.now() + timedelta(hours = 9)
     arg_dict["log_dir"] = "logs/" + cur_time.strftime("[%m-%d]%H.%M.%S")
     save_args(arg_dict)
@@ -74,5 +57,28 @@ if __name__ == '__main__':
         
     for p in processes:
         p.join()
+    
+
+if __name__ == '__main__':
+    # hyperparameters
+    arg_dict = {
+        "env": "11_vs_11_easy_stochastic",
+        "num_processes": 9,
+        "batch_size": 16,   
+        "buffer_size": 5,
+        "rollout_len": 20,
+        "lstm_size" : 196,
+        "k_epoch" : 3,
+        "summary_game_window" : 5,
+        "model_save_interval" : 100000,
+        
+        "encoder" : "raw_encoder",
+        "rewarder" : "rewarder_se",
+        "model" : "ppo"
+    }
+    
+    main(arg_dict)
+    
+    
         
         

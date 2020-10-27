@@ -100,17 +100,9 @@ class FeatureEncoder:
         NO_OP, MOVE, LONG_PASS, HIGH_PASS, SHORT_PASS, SHOT, SPRINT, RELEASE_MOVE, \
                                                       RELEASE_SPRINT, SLIDE, DRIBBLE, RELEASE_DRIBBLE = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 
-#         # When opponents owning ball ...
-#         if obs['ball_owned_team'] == 1: # opponents owning ball
-#             avail[LONG_PASS], avail[HIGH_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0
-#         elif obs['ball_owned_team'] == -1: # no team owning ball 
-#             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0
-#         else:
-#             avail[SLIDE] = 0
-            
-        # When opponents owning ball ...  conservative
+        # When opponents owning ball ...
         if obs['ball_owned_team'] == 1: # opponents owning ball
-            avail[HIGH_PASS], avail[DRIBBLE] = 0, 0
+            avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
         elif obs['ball_owned_team'] == -1: # no team owning ball 
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
         else:
@@ -137,17 +129,18 @@ class FeatureEncoder:
         if player_pos_x < 0.5 and obs['ball_owned_team'] == 0:
             avail[SHOT] = 0
             
-        
-#         if obs['game_mode'] == 2:
             
-#         0 = e_GameMode_Normal
-#         1 = e_GameMode_KickOff
-#         2 = e_GameMode_GoalKick
-#         3 = e_GameMode_FreeKick
-#         4 = e_GameMode_Corner
-#         5 = e_GameMode_ThrowIn
-#         6 = e_GameMode_Penalty
-
+        if obs['ball_owned_team'] == 0:  # our team 
+            if obs['game_mode'] == 2:  # GoalKick
+                avail[SPRINT], avail[DRIBBLE] = 0, 0
+            elif obs['game_mode'] == 3:  # FreeKick
+                avail[DRIBBLE] = 0
+            elif obs['game_mode'] == 4:  # Corner
+                avail[SHOT], avail[SPRINT], avail[DRIBBLE] = 0, 0, 0
+            elif obs['game_mode'] == 5:  #ThrowIn
+                avail[SHOT], avail[SPRINT], avail[DRIBBLE] = 0, 0, 0
+            elif obs['game_mode'] == 6:  # Penalty
+                avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[DRIBBLE] = 0, 0, 0, 0
             
         return np.array(avail)
         
