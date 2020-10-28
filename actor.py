@@ -35,7 +35,7 @@ def state_to_tensor(state_dict, h_in):
     return state_dict_tensor
 
 
-def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict, print_mode=False):
+def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
     print("Actor process {} started".format(actor_num))
     fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
     rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
@@ -118,7 +118,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             score += rew
             tot_reward += fin_r
             
-            if print_mode:
+            if arg_dict['print_mode']:
                 print_status(steps,a,m,prob_selected_a,prob_selected_m,prev_obs,fin_r,tot_reward)
             
             loop_t += time.time()-init_t

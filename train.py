@@ -80,6 +80,7 @@ if __name__ == '__main__':
         "lmbda" : 0.96,
         "entropy_coef" : 0.0,
         "trained_model_dir" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
+        "print_mode" : False,
         
         "encoder" : "encoder_raw",
         "rewarder" : "rewarder_se",
