@@ -8,6 +8,8 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import torch.multiprocessing as mp 
 
+from util import *
+
 from datetime import datetime, timedelta
 
 
@@ -31,18 +33,16 @@ def state_to_tensor(state_dict, h_in):
       "hidden" : h_in
     }
     return state_dict_tensor
-    
 
 
-def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
+def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict, print_mode=False):
     print("Actor process {} started".format(actor_num))
     fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
     rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
     imported_model = importlib.import_module("Model." + arg_dict["model"])
     
     fe = fe_module.FeatureEncoder()
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = imported_model.PPO(arg_dict, device)
+    model = imported_model.PPO(arg_dict)
     model.load_state_dict(center_model.state_dict())
     
     env = football_env.create_environment(env_name=arg_dict["env"], representation="raw", stacked=False, logdir='/tmp/football', \
@@ -52,16 +52,12 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
     while True:
         env.reset()   
         done = False
-        score = 0
-        win = 0
-        steps = 0
-        tot_reward = 0
+        steps, score, tot_reward, win = 0, 0, 0, 0
         n_epi += 1
         h_out = (torch.zeros([1, 1, arg_dict["lstm_size"]], dtype=torch.float), 
                  torch.zeros([1, 1, arg_dict["lstm_size"]], dtype=torch.float))
         
         loop_t, forward_t, wait_t = 0.0, 0.0, 0.0
-        
         obs = env.observation()
         
         while not done:
@@ -73,7 +69,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
                 is_stopped = True
             if is_stopped:
                 model.load_state_dict(center_model.state_dict())
-
             wait_t += time.time() - init_t
             
             h_in = h_out
@@ -86,36 +81,34 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             forward_t += time.time()-t1 
             
             a = Categorical(a_prob).sample().item()
-            
-            prob = 0
+            prob_selected_a = a_prob[0][0][a].item()
+            prob_selected_m = 0
             if a==0:
                 m, need_m = 0, 0
                 real_action = a
-                prob = a_prob[0][0][a].item()
+                prob = prob_selected_a
             elif a==1:
                 m = Categorical(m_prob).sample().item()
                 need_m = 1
                 real_action = m + 1
-                prob = a_prob[0][0][a].item() * m_prob[0][0][m].item()
+                prob_selected_m = m_prob[0][0][m].item()
+                prob = prob_selected_a* prob_selected_m
             else:
                 m, need_m = 0, 0
                 real_action = a + 7
-                prob = a_prob[0][0][a].item()
+                prob = prob_selected_a
 
             prev_obs = obs
             obs, rew, done, info = env.step(real_action)
             fin_r = rewarder.calc_reward(rew, prev_obs[0], obs[0])
-            
             state_prime_dict = fe.encode(obs[0])
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
             state_dict["hidden"] = (h1_in.numpy(), h2_in.numpy())
             state_prime_dict["hidden"] = (h1_out.numpy(), h2_out.numpy())
-
             transition = (state_dict, a, m, fin_r, state_prime_dict, prob, done, need_m)
             rollout.append(transition)
-
             if len(rollout) == arg_dict["rollout_len"]:
                 data_queue.put(rollout)
                 rollout = []
@@ -125,16 +118,16 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             score += rew
             tot_reward += fin_r
             
+            if print_mode:
+                print_status(steps,a,m,prob_selected_a,prob_selected_m,prev_obs,fin_r,tot_reward)
+            
             loop_t += time.time()-init_t
 
             if done:
                 if score > 0:
                     win = 1
-                
+                print("score",score,"total reward",tot_reward)
                 summary_data = (win, score, tot_reward, steps, loop_t/steps, forward_t/steps, wait_t/steps)
                 summary_queue.put(summary_data)
-#                 if n_epi % 4 == 0 and actor_num == 0:
-#                     print("%d, Done, Step %d win: %d, score: %d" % (n_epi, steps, win, score))
-#                     score = 0
-#                     win = 0
+
 

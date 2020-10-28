@@ -42,12 +42,13 @@ class PPO(nn.Module):
         self.norm_v1 = nn.LayerNorm(128)
         self.fc_v2 = nn.Linear(128, 1,  bias=False)
         self.pool = nn.AdaptiveAvgPool2d((1,None))
-        self.optimizer = optim.Adam(self.parameters(), lr=0.0002)
+        self.optimizer = optim.Adam(self.parameters(), lr=arg_dict["learning_rate"])
 
-        self.gamma = 0.992
+        self.gamma = arg_dict["gamma"]
         self.K_epoch = arg_dict["k_epoch"]
-        self.lmbda = 0.96
+        self.lmbda = arg_dict["lmbda"]
         self.eps_clip = 0.1
+        self.entropy_coef = arg_dict["entropy_coef"]
         
     def forward(self, state_dict):
         player_state = state_dict["player"]          
@@ -231,11 +232,10 @@ class PPO(nn.Module):
 
                 surr_loss = -torch.min(surr1, surr2)
                 v_loss = F.smooth_l1_loss(v, td_target.detach())
-                entropy_loss = -0.0001*entropy
-#                 loss = surr_loss + v_loss + entropy_loss
-                loss = surr_loss + v_loss
+                entropy_loss = -1*arg_dict["entropy_coef"]*entropy
+                loss = surr_loss + v_loss + entropy_loss
+#                 loss = surr_loss + v_loss
                 loss = loss.mean()
-#                 print(i,loss)
                 
                 self.optimizer.zero_grad()
                 loss.backward()

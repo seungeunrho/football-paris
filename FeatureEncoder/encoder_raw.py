@@ -105,7 +105,7 @@ class FeatureEncoder:
         # When opponents owning ball ...
         if obs['ball_owned_team'] == 1: # opponents owning ball
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
-        elif obs['ball_owned_team'] == -1: # no team owning ball 
+        elif obs['ball_owned_team'] == -1: # GR ball 
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
         else:
             avail[SLIDE] = 0
@@ -127,10 +127,9 @@ class FeatureEncoder:
             
         
         # if too far, no shot
-        player_pos_x, player_pos_y = obs['left_team'][obs['active']]
-        if player_pos_x < 0.5 and obs['ball_owned_team'] == 0:
+        ball_x, ball_y, _ = obs['ball']
+        if ball_x < 0.6:
             avail[SHOT] = 0
-            
             
         if obs['ball_owned_team'] == 0:  # our team 
             if obs['game_mode'] == 2:  # GoalKick
@@ -146,19 +145,16 @@ class FeatureEncoder:
             
         return np.array(avail)
         
-        
-    
-        
     def _encode_ball_which_zone(self, ball_x, ball_y):
-        if ball_x < -0.7 and (-0.3 < ball_y and ball_y < 0.3):
+        if (-1.0<=ball_x and ball_x<-0.7) and (-0.3<ball_y and ball_y<0.3):
             return [1.0,0,0,0,0,0]
-        elif ball_x < -0.2 and (-0.42 < ball_y and ball_y < 0.42):
+        elif (-1.0<=ball_x and ball_x<-0.2) and (-0.42<ball_y and ball_y<0.42):
             return [0,1.0,0,0,0,0]
-        elif ball_x < 0.2 and (-0.42 < ball_y and ball_y < 0.42):
+        elif (0.7<ball_x and ball_x<=1.0) and (-0.3<ball_y and ball_y<0.3):
             return [0,0,1.0,0,0,0]
-        elif ball_x > 0.7 and (-0.3 < ball_y and ball_y < 0.3):
+        elif (0.2<ball_x and ball_x<=1.0) and (-0.42<ball_y and ball_y<0.42) :
             return [0,0,0,1.0,0,0]
-        elif ball_x <=1.0 and (-0.42 < ball_y and ball_y < 0.42) :
+        elif (-0.2<=ball_x and ball_x<=0.2) and (-0.42<ball_y and ball_y<0.42) :
             return [0,0,0,0,1.0,0]
         else:
             return [0,0,0,0,0,1.0]

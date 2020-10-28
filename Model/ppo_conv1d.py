@@ -10,6 +10,7 @@ from torch.distributions import Categorical
 class PPO(nn.Module):
     def __init__(self, arg_dict, device=None):
         super(PPO, self).__init__()
+        self.device=None
         if device:
             self.device = device
 
@@ -24,19 +25,16 @@ class PPO(nn.Module):
         self.conv1d_right = nn.Conv1d(32, 32, 1, stride=1)
         self.fc_left2 = nn.Linear(32*10,96)
         self.fc_right2 = nn.Linear(32*10,96)
-        
         self.fc_cat = nn.Linear(96+96+64+64+32+32,arg_dict["lstm_size"])
+        
         self.norm_player = nn.LayerNorm(64)
         self.norm_ball = nn.LayerNorm(64)
-        
         self.norm_left = nn.LayerNorm(32)
         self.norm_left2 = nn.LayerNorm(96)
         self.norm_left_closest = nn.LayerNorm(32)
         self.norm_right = nn.LayerNorm(32)
         self.norm_right2 = nn.LayerNorm(96)
         self.norm_right_closest = nn.LayerNorm(32)
-        
-        
         self.norm_cat = nn.LayerNorm(arg_dict["lstm_size"])
         
         self.lstm  = nn.LSTM(arg_dict["lstm_size"],arg_dict["lstm_size"])
@@ -53,12 +51,13 @@ class PPO(nn.Module):
         self.norm_v1 = nn.LayerNorm(128)
         self.fc_v2 = nn.Linear(128, 1,  bias=False)
         self.pool = nn.AdaptiveAvgPool2d((1,None))
-        self.optimizer = optim.Adam(self.parameters(), lr=0.0002)
+        self.optimizer = optim.Adam(self.parameters(), lr=arg_dict["learning_rate"])
 
-        self.gamma = 0.992
+        self.gamma = arg_dict["gamma"]
         self.K_epoch = arg_dict["k_epoch"]
-        self.lmbda = 0.96
+        self.lmbda = arg_dict["lmbda"]
         self.eps_clip = 0.1
+        self.entropy_coef = arg_dict["entropy_coef"]
         
     def forward(self, state_dict):
         player_state = state_dict["player"]          
@@ -180,7 +179,8 @@ class PPO(nn.Module):
             prob_batch.append(prob_lst)
             done_batch.append(done_lst)
             need_move_batch.append(need_move_lst)
-            
+        
+
         s = {
           "player": torch.tensor(s_player_batch, dtype=torch.float, device=self.device).permute(1,0,2),
           "ball": torch.tensor(s_ball_batch, dtype=torch.float, device=self.device).permute(1,0,2),
@@ -211,8 +211,7 @@ class PPO(nn.Module):
                                          torch.tensor(done_batch, dtype=torch.float, device=self.device).permute(1,0,2), \
                                          torch.tensor(prob_batch, dtype=torch.float, device=self.device).permute(1,0,2), \
                                          torch.tensor(need_move_batch, dtype=torch.float, device=self.device).permute(1,0,2)
-        
-        
+
         return s, a, m, r, s_prime, done_mask, prob, need_move
     
 
@@ -250,11 +249,10 @@ class PPO(nn.Module):
 
                 surr_loss = -torch.min(surr1, surr2)
                 v_loss = F.smooth_l1_loss(v, td_target.detach())
-                entropy_loss = -0.0001*entropy
-#                 loss = surr_loss + v_loss + entropy_loss
-                loss = surr_loss + v_loss
+                entropy_loss = -1*self.entropy_coef*entropy
+                loss = surr_loss + v_loss + entropy_loss
+#                 loss = surr_loss + v_loss
                 loss = loss.mean()
-#                 print(i,loss)
                 
                 self.optimizer.zero_grad()
                 loss.backward()

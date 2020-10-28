@@ -40,7 +40,11 @@ def main(arg_dict):
     arg_dict["feature_dims"] = fe.get_feature_dims()
     
     model = importlib.import_module("Model." + arg_dict["model"])
+    cpu_device = torch.device('cpu')
     center_model = model.PPO(arg_dict)
+    if arg_dict["trained_model_dir"]:
+        center_model.load_state_dict(torch.load(arg_dict["trained_model_dir"], map_location=cpu_device))
+        
     center_model.share_memory()
     data_queue = mp.Queue()
     signal_queue = mp.Queue()
@@ -71,8 +75,13 @@ if __name__ == '__main__':
         "k_epoch" : 3,
         "summary_game_window" : 10,
         "model_save_interval" : 100000,
+        "learning_rate" : 0.0001,
+        "gamma" : 0.992,
+        "lmbda" : 0.96,
+        "entropy_coef" : 0.0,
+        "trained_model_dir" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
         
-        "encoder" : "raw_encoder",
+        "encoder" : "encoder_raw",
         "rewarder" : "rewarder_se",
         "model" : "ppo_conv1d"
     }
