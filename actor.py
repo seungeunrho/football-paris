@@ -81,10 +81,10 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             forward_t += time.time()-t1 
             
             a = Categorical(a_prob).sample().item()
+            m, need_m = 0, 0
             prob_selected_a = a_prob[0][0][a].item()
             prob_selected_m = 0
             if a==0:
-                m, need_m = 0, 0
                 real_action = a
                 prob = prob_selected_a
             elif a==1:
@@ -94,9 +94,10 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
                 prob_selected_m = m_prob[0][0][m].item()
                 prob = prob_selected_a* prob_selected_m
             else:
-                m, need_m = 0, 0
                 real_action = a + 7
                 prob = prob_selected_a
+                
+            assert prob != 0, 'prob 0 ERROR!!!! a : {}, m:{}  {}, {}'.format(a,m,prob_selected_a,prob_selected_m)
 
             prev_obs = obs
             obs, rew, done, info = env.step(real_action)

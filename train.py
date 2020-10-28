@@ -25,6 +25,8 @@ def save_args(arg_dict):
     f.write(args_info)
     f.close()
     
+    
+    
 def main(arg_dict):
     cur_time = datetime.now() + timedelta(hours = 9)
     arg_dict["log_dir"] = "logs/" + cur_time.strftime("[%m-%d]%H.%M.%S")
@@ -43,7 +45,12 @@ def main(arg_dict):
     cpu_device = torch.device('cpu')
     center_model = model.PPO(arg_dict)
     if arg_dict["trained_model_dir"]:
-        center_model.load_state_dict(torch.load(arg_dict["trained_model_dir"], map_location=cpu_device))
+        checkpoint = torch.load(arg_dict["trained_model_dir"], map_location=cpu_device)
+        optimization_step = checkpoint['optimization_step']
+        center_model.load_state_dict(checkpoint['model_state_dict'])
+        center_model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        arg_dict["optimization_step"] = optimization_step
+        print("Trained model", arg_dict["trained_model_dir"] ,"suffessfully loaded")
         
     center_model.share_memory()
     data_queue = mp.Queue()
@@ -66,7 +73,7 @@ def main(arg_dict):
 if __name__ == '__main__':
     # hyperparameters
     arg_dict = {
-        "env": "11_vs_11_easy_stochastic",
+        "env": "11_vs_11_stochastic",
         "num_processes": 9,
         "batch_size": 16,   
         "buffer_size": 5,
@@ -79,7 +86,8 @@ if __name__ == '__main__':
         "gamma" : 0.992,
         "lmbda" : 0.96,
         "entropy_coef" : 0.0,
-        "trained_model_dir" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
+#         "trained_model_dir" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
+        "trained_model_dir" : None,
         "print_mode" : False,
         
         "encoder" : "encoder_raw",

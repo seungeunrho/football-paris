@@ -93,7 +93,7 @@ class PPO(nn.Module):
         
         a_out = F.relu(self.norm_pi_a1(self.fc_pi_a1(out)))
         a_out = self.fc_pi_a2(a_out)
-        logit = a_out + (avail-1)*1e8
+        logit = a_out + (avail-1)*1e7
         prob = F.softmax(logit, dim=2)
         
         prob_m = F.relu(self.norm_pi_m1(self.fc_pi_m1(out)))
@@ -223,7 +223,7 @@ class PPO(nn.Module):
         for i in range(self.K_epoch):
             for mini_batch in data:
                 s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
-                pi, pi_m, v, _ = self.forward(s)
+                pi, pi_move, v, _ = self.forward(s)
                 pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
 
                 td_target = r + self.gamma * v_prime * done_mask
@@ -239,13 +239,13 @@ class PPO(nn.Module):
                 advantage = torch.tensor(advantage_lst, dtype=torch.float, device=self.device)
 
                 pi_a = pi.gather(2,a)
-                pi_m = pi_m.gather(2,m)
+                pi_m = pi_move.gather(2,m)
                 pi_am = pi_a - pi_a*need_move*(1-pi_m)
                 ratio = torch.exp(torch.log(pi_am) - torch.log(prob))  # a/b == exp(log(a)-log(b))
 
                 surr1 = ratio * advantage
                 surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-                entropy = -torch.sum(pi*torch.log(pi+ 1e-8), dim=2, keepdim=True)
+                entropy = -torch.sum(pi*torch.log(pi+ 1e-7), dim=2, keepdim=True)
 
                 surr_loss = -torch.min(surr1, surr2)
                 v_loss = F.smooth_l1_loss(v, td_target.detach())

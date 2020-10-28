@@ -39,7 +39,15 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
 
 def save_model(model, arg_dict, optimization_step, last_saved_step):
     if optimization_step >= last_saved_step + arg_dict["model_save_interval"]:
-        torch.save(model.state_dict(), arg_dict["log_dir"]+"/model_"+str(optimization_step)+".pt")
+#         torch.save(model.state_dict(), arg_dict["log_dir"]+"/model_"+str(optimization_step)+".pt")
+        model_dict = {
+            'optimization_step': optimization_step,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': model.optimizer.state_dict(),
+        }
+        path = arg_dict["log_dir"]+"/model_"+str(optimization_step)+".tar"
+        torch.save(model_dict, path)
+        print("Model saved :", path)
         return optimization_step
     else:
         return last_saved_step
@@ -61,12 +69,19 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = imported_model.PPO(arg_dict, device)
     model.load_state_dict(center_model.state_dict())
+    model.optimizer.load_state_dict(center_model.optimizer.state_dict())
+    for state in model.optimizer.state.values():
+        for k, v in state.items():
+            if isinstance(v, torch.Tensor):
+                state[k] = v.cuda()
     model.to(device)
     
     writer = SummaryWriter(logdir=arg_dict["log_dir"])
     optimization_step = 0
+    if "optimization_step" in arg_dict:
+        optimization_step = arg_dict["optimization_step"]
+    last_saved_step = optimization_step
     n_game = 0
-    last_saved_step = 0
     loss_lst, pi_loss_lst, v_loss_lst, entropy_lst = [], [], [], []
     
     while True:
