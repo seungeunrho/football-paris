@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 
 def save_args(arg_dict):
-    os.mkdir(arg_dict["log_dir"])
+    os.makedirs(arg_dict["log_dir"])
     args_info = json.dumps(arg_dict, indent=4)
     f = open(arg_dict["log_dir"]+"/args.json","w")
     f.write(args_info)
@@ -74,7 +74,8 @@ if __name__ == '__main__':
     # hyperparameters
     arg_dict = {
         "env": "11_vs_11_stochastic",
-        "num_processes": 9,
+        #"num_processes": 9,
+        "num_processes": 50,
         "batch_size": 16,   
         "buffer_size": 5,
         "rollout_len": 20,
