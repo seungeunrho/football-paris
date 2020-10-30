@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 
 def save_args(arg_dict):
-    os.mkdir(arg_dict["log_dir"])
+    os.makedirs(arg_dict["log_dir"])
     args_info = json.dumps(arg_dict, indent=4)
     f = open(arg_dict["log_dir"]+"/args.json","w")
     f.write(args_info)
