@@ -120,7 +120,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             tot_reward += fin_r
             
             if arg_dict['print_mode']:
-                print_status(steps,a,m,prob_selected_a,prob_selected_m,prev_obs,fin_r,tot_reward)
+                print_status(steps,a,m,prob_selected_a,prob_selected_m,prev_obs,obs,fin_r,tot_reward)
             
             loop_t += time.time()-init_t
 
