@@ -57,7 +57,7 @@ def get_action(a_prob, m_prob):
 
     assert prob != 0, 'prob 0 ERROR!!!! a : {}, m:{}  {}, {}'.format(a,m,prob_selected_a,prob_selected_m)
     
-    return real_action, a, m, need_m, prob
+    return real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m
 
 def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
     print("Actor process {} started".format(actor_num))
@@ -103,7 +103,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             with torch.no_grad():
                 a_prob, m_prob, _, h_out = model(state_dict_tensor)
             forward_t += time.time()-t1 
-            real_action, a, m, need_m, prob = get_action(a_prob, m_prob)
+            real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
 
             prev_obs = obs
             obs, rew, done, info = env.step(real_action)
