@@ -39,7 +39,6 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
 
 def save_model(model, arg_dict, optimization_step, last_saved_step):
     if optimization_step >= last_saved_step + arg_dict["model_save_interval"]:
-#         torch.save(model.state_dict(), arg_dict["log_dir"]+"/model_"+str(optimization_step)+".pt")
         model_dict = {
             'optimization_step': optimization_step,
             'model_state_dict': model.state_dict(),

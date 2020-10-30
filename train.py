@@ -13,9 +13,6 @@ from actor import *
 from learner import *
 from datetime import datetime, timedelta
 
-#11_vs_11_easy_stochastic
-#academy_empty_goal_close 300 epi done
-#academy_empty_goal 450 epi done
 
 
 def save_args(arg_dict):
@@ -44,13 +41,22 @@ def main(arg_dict):
     model = importlib.import_module("Model." + arg_dict["model"])
     cpu_device = torch.device('cpu')
     center_model = model.PPO(arg_dict)
-    if arg_dict["trained_model_dir"]:
-        checkpoint = torch.load(arg_dict["trained_model_dir"], map_location=cpu_device)
+    if arg_dict["trained_model_path"]:
+        checkpoint = torch.load(arg_dict["trained_model_path"], map_location=cpu_device)
         optimization_step = checkpoint['optimization_step']
         center_model.load_state_dict(checkpoint['model_state_dict'])
         center_model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         arg_dict["optimization_step"] = optimization_step
-        print("Trained model", arg_dict["trained_model_dir"] ,"suffessfully loaded")
+        print("Trained model", arg_dict["trained_model_path"] ,"suffessfully loaded") 
+    else:
+        model_dict = {
+            'optimization_step': 0,
+            'model_state_dict': center_model.state_dict(),
+            'optimizer_state_dict': center_model.optimizer.state_dict(),
+        }
+        path = arg_dict["log_dir"]+"/model_0.tar"
+        torch.save(model_dict, path)
+        
         
     center_model.share_memory()
     data_queue = mp.Queue()
@@ -62,7 +68,10 @@ def main(arg_dict):
     p.start()
     processes.append(p)
     for rank in range(arg_dict["num_processes"]):
-        p = mp.Process(target=actor, args=(rank, center_model, data_queue, signal_queue, summary_queue, arg_dict))
+        if arg_dict["env"] == "11_vs_11_kaggle":
+            p = mp.Process(target=actor_self, args=(rank, center_model, data_queue, signal_queue, summary_queue, arg_dict))
+        else:
+            p = mp.Process(target=actor, args=(rank, center_model, data_queue, signal_queue, summary_queue, arg_dict))
         p.start()
         processes.append(p)
         
@@ -71,9 +80,14 @@ def main(arg_dict):
     
 
 if __name__ == '__main__':
+    # envs
+    #11_vs_11_easy_stochastic  : vs. easy_rule
+    #11_vs_11_stochastic  : vs. medium_rule
+    #11_vs_11_kaggle  : vs. self-play
+
     # hyperparameters
     arg_dict = {
-        "env": "11_vs_11_stochastic",
+        "env": "11_vs_11_kaggle",
         "num_processes": 9,
         "batch_size": 32,   
         "buffer_size": 5,
@@ -86,14 +100,16 @@ if __name__ == '__main__':
         "gamma" : 0.993,
         "lmbda" : 0.96,
         "entropy_coef" : 0.00003,
-#         "trained_model_dir" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
-        "trained_model_dir" : None,
+#         "trained_model_path" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
+        "trained_model_path" : None,
         "print_mode" : False,
+        "latest_ratio" : 0.5,
         
         "encoder" : "encoder_raw",
         "rewarder" : "rewarder_se",
         "model" : "ppo_conv1d"
     }
+
     
     main(arg_dict)
     
