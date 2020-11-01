@@ -20,7 +20,7 @@ class FeatureEncoder:
         player_num = obs['active']
         
         player_pos_x, player_pos_y = obs['left_team'][player_num]
-        player_direction = obs['left_team_direction'][player_num]
+        player_direction = np.array(obs['left_team_direction'][player_num])
         player_speed = np.linalg.norm(player_direction)
         player_role = obs['left_team_roles'][player_num]
         player_role_onehot = self._encode_role_onehot(player_role)
@@ -59,10 +59,10 @@ class FeatureEncoder:
                                        player_role_onehot, [ball_far, player_tired, is_dribbling, is_sprinting]))
         
         
-        ball_state = np.concatenate((obs['ball'], 
+        ball_state = np.concatenate((np.array(obs['ball']), 
                                      np.array(ball_which_zone),
                                      np.array([ball_x_relative, ball_y_relative]),
-                                     obs['ball_direction']*20,
+                                     np.array(obs['ball_direction'])*20,
                                      np.array([ball_speed*20, ball_distance, ball_owned, ball_owned_by_us])))
         
 
@@ -115,7 +115,7 @@ class FeatureEncoder:
         # When opponents owning ball ...
         if obs['ball_owned_team'] == 1: # opponents owning ball
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
-        elif obs['ball_owned_team'] == -1 and ball_distance > 0.03: # GR ball  and far from me
+        elif obs['ball_owned_team'] == -1 and ball_distance > 0.03 and obs['game_mode'] == 0: # GR ball  and far from me
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
         else:
             avail[SLIDE] = 0

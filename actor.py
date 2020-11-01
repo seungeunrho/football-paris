@@ -129,6 +129,8 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
                 print_status(steps,a,m,prob_selected_a,prob_selected_m,prev_obs,obs,fin_r,tot_reward)
             
             loop_t += time.time()-init_t
+            
+            
 
             if done:
                 if score > 0:
@@ -145,15 +147,17 @@ def select_opponent(arg_dict):
             model_num = file_name[6:]
             model_num = model_num[:-4]
             model_num_lst.append(int(model_num))
+    model_num_lst.sort()
             
     coin = random.random()
     if coin<arg_dict["latest_ratio"]:
-        opp_model_num = max(model_num_lst)
+        opp_model_num = len(model_num_lst)-1
     else:
-        opp_model_num = random.choice(model_num_lst)
+        opp_model_num = random.randint(0,len(model_num_lst)-1)
         
-    opp_model_path = arg_dict["log_dir"] + "/model_"+str(opp_model_num)+".tar"
-    return opp_model_path
+    model_name = "/model_"+str(model_num_lst[opp_model_num])+".tar"
+    opp_model_path = arg_dict["log_dir"] + model_name
+    return opp_model_num, opp_model_path
             
     
                 
@@ -176,10 +180,10 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
     n_epi = 0
     rollout = []
     while True: # episode loop
-        opp_model_path = select_opponent(arg_dict)
+        opp_model_num, opp_model_path = select_opponent(arg_dict)
         checkpoint = torch.load(opp_model_path, map_location=cpu_device)
         opp_model.load_state_dict(checkpoint['model_state_dict'])
-        print("Current Opponent model :", opp_model_path ,"suffessfully loaded") 
+        print("Current Opponent model Num:{}, Path:{} successfully loaded".format(opp_model_num, opp_model_path))
         
         env.reset()   
         done = False
@@ -217,8 +221,8 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
                 opp_a_prob, opp_m_prob, _, opp_h_out = model(opp_state_dict_tensor)
             forward_t += time.time()-t1 
             
-            real_action, a, m, need_m, prob = get_action(a_prob, m_prob)
-            opp_real_action, _, _, _, _ = get_action(opp_a_prob, opp_m_prob)
+            real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
+            opp_real_action, _, _, _, _, _, _ = get_action(opp_a_prob, opp_m_prob)
 
             prev_obs = obs
             [obs, opp_obs], [rew, _], done, info = env.step([real_action, opp_real_action])
@@ -249,6 +253,6 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
                 if score > 0:
                     win = 1
                 print("score",score,"total reward",tot_reward)
-                summary_data = (win, score, tot_reward, steps, loop_t/steps, forward_t/steps, wait_t/steps)
+                summary_data = (win, score, tot_reward, steps, str(opp_model_num), loop_t/steps, forward_t/steps, wait_t/steps)
                 summary_queue.put(summary_data)                
 

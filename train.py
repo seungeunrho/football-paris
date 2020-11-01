@@ -99,7 +99,7 @@ if __name__ == '__main__':
         "learning_rate" : 0.0001,
         "gamma" : 0.993,
         "lmbda" : 0.96,
-        "entropy_coef" : 0.00003,
+        "entropy_coef" : 0.00005,
 #         "trained_model_path" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
         "trained_model_path" : None,
         "print_mode" : False,
