@@ -109,7 +109,7 @@ if __name__ == '__main__':
         "rewarder" : "rewarder_se",
         "model" : "ppo_conv1d",
 
-        "visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
+        #"visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
     }
 
     
