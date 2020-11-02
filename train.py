@@ -1,5 +1,5 @@
 import gfootball.env as football_env
-import time, pprint, json, os, importlib
+import time, pprint, json, os, importlib, shutil
 import numpy as np
 import torch
 import torch.nn as nn
@@ -21,13 +21,32 @@ def save_args(arg_dict):
     f = open(arg_dict["log_dir"]+"/args.json","w")
     f.write(args_info)
     f.close()
-    
-    
+
+def copy_models(dir_src, dir_dst, num_copy = 20, sample_exponentially = True): # src: source, dst: destination
+    # retireve list of models
+    l_cands = [f for f in os.listdir(dir_src) if os.path.isfile(os.path.join(dir_src, f)) and 'model_' in f]
+    l_cands = sorted(l_cands, key=lambda x: int(x.split('_')[-1].split('.')[0]))
+    print(f"\n{len(l_cands)} models saved in the given directory")
+
+    num_copy = min(num_copy, len(l_cands))
+    if sample_exponentially:
+        idx_tocopy = sorted(set(int(np.exp(np.log(len(l_cands)) /num_copy) ** i) for i in range(num_copy)), key=lambda x: x)
+        #print(idx_tocopy)
+        l_tocopy = [l_cands[-idx] for idx in idx_tocopy]
+    else:
+        l_tocopy = l_cands[-num_copy:]
+
+    print(f"models to be copied: {l_tocopy}\n")
+    for m in l_tocopy:
+        shutil.copyfile(os.path.join(dir_src, m), os.path.join(dir_dst, m))
+
+    #print(os.listdir(dir_dst))
     
 def main(arg_dict):
     cur_time = datetime.now() + timedelta(hours = 9)
     arg_dict["log_dir"] = "logs/" + cur_time.strftime("[%m-%d]%H.%M.%S")
     save_args(arg_dict)
+    if 'kaggle' in arg_dict['env']: copy_models(os.path.dirname(arg_dict['trained_model_path']), arg_dict['log_dir'], arg_dict['num_copy'], arg_dict['sample_exponentially'])
 
     np.set_printoptions(precision=3)
     np.set_printoptions(suppress=True)
@@ -48,15 +67,18 @@ def main(arg_dict):
         center_model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         arg_dict["optimization_step"] = optimization_step
         print("Trained model", arg_dict["trained_model_path"] ,"suffessfully loaded") 
-    else:
-        model_dict = {
-            'optimization_step': 0,
-            'model_state_dict': center_model.state_dict(),
-            'optimizer_state_dict': center_model.optimizer.state_dict(),
-        }
-        path = arg_dict["log_dir"]+"/model_0.tar"
-        torch.save(model_dict, path)
         
+    else:
+        optimization_step = 0
+
+    model_dict = {
+        'optimization_step': optimization_step,
+        'model_state_dict': center_model.state_dict(),
+        'optimizer_state_dict': center_model.optimizer.state_dict(),
+    }
+
+    path = arg_dict["log_dir"]+f"/model_{optimization_step}.tar"
+    torch.save(model_dict, path)
         
     center_model.share_memory()
     data_queue = mp.Queue()
@@ -88,9 +110,9 @@ if __name__ == '__main__':
     # hyperparameters
     arg_dict = {
         "env": "11_vs_11_kaggle",
-        "num_processes": 9,
+        "num_processes": 30,
         "batch_size": 32,   
-        "buffer_size": 5,
+        "buffer_size": 10,
         "rollout_len": 30,
         "lstm_size" : 196,
         "k_epoch" : 3,
@@ -100,16 +122,18 @@ if __name__ == '__main__':
         "gamma" : 0.993,
         "lmbda" : 0.96,
         "entropy_coef" : 0.00005,
-#         "trained_model_path" : "logs/[10-28]03.56.37/model_800640.pt",   # default : None
-        "trained_model_path" : None,
+        "trained_model_path" : "logs/[10-30]self-30procs/model_15120000.tar",   # default : None
+        #"trained_model_path" : None,
+        "num_copy": 20, # number of models to be copied from the previous path
+        "sample_exponentially": True, # ways of choosing models to be copied from the previous path
         "print_mode" : False,
-        "latest_ratio" : 0.5,
+        "latest_ratio" : 0.3,
         
         "encoder" : "encoder_raw",
         "rewarder" : "rewarder_se",
         "model" : "ppo_conv1d",
 
-        "visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
+        #"visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
     }
 
     
