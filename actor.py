@@ -14,6 +14,7 @@ from os.path import isfile, join
 from util import *
 from datetime import datetime, timedelta
 
+from Utils.drawer import Drawer
 
 def state_to_tensor(state_dict, h_in):
     player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
@@ -64,6 +65,11 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
     fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
     rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
     imported_model = importlib.import_module("Model." + arg_dict["model"])
+
+    # check whther to use visdom or not
+    check_visdom = 'visdom_server' in arg_dict
+    if check_visdom:
+        drawer = Drawer(arg_dict['visdom_server'])
     
     fe = fe_module.FeatureEncoder()
     model = imported_model.PPO(arg_dict)
@@ -109,6 +115,10 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             obs, rew, done, info = env.step(real_action)
             fin_r = rewarder.calc_reward(rew, prev_obs[0], obs[0])
             state_prime_dict = fe.encode(obs[0])
+
+            # draw visdom
+            if (check_visdom and actor_num==0):
+                drawer.draw(obs[0])
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
@@ -117,7 +127,8 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             transition = (state_dict, a, m, fin_r, state_prime_dict, prob, done, need_m)
             rollout.append(transition)
             if len(rollout) == arg_dict["rollout_len"]:
-                data_queue.put(rollout)
+                if not (check_visdom and actor_num==0):
+                    data_queue.put(rollout)
                 rollout = []
                 model.load_state_dict(center_model.state_dict())
 
@@ -131,7 +142,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             loop_t += time.time()-init_t
             
             
-
             if done:
                 if score > 0:
                     win = 1
@@ -177,6 +187,10 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
     env = football_env.create_environment(env_name=arg_dict["env"], number_of_right_players_agent_controls=1, representation="raw", \
                                           stacked=False, logdir='/tmp/football', write_goal_dumps=False, write_full_episode_dumps=False, \
                                           render=False)
+    check_visdom = 'visdom_server' in arg_dict
+    if check_visdom:
+        drawer = Drawer(arg_dict['visdom_server'])
+
     n_epi = 0
     rollout = []
     while True: # episode loop
@@ -228,6 +242,10 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
             [obs, opp_obs], [rew, _], done, info = env.step([real_action, opp_real_action])
             fin_r = rewarder.calc_reward(rew, prev_obs, obs)
             state_prime_dict = fe.encode(obs)
+
+            # draw visdom
+            if (check_visdom and actor_num==0):
+                drawer.draw(obs)
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
@@ -236,7 +254,8 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
             transition = (state_dict, a, m, fin_r, state_prime_dict, prob, done, need_m)
             rollout.append(transition)
             if len(rollout) == arg_dict["rollout_len"]:
-                data_queue.put(rollout)
+                if not (check_visdom and actor_num==0):
+                    data_queue.put(rollout)
                 rollout = []
                 model.load_state_dict(center_model.state_dict())
 
