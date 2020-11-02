@@ -46,7 +46,7 @@ def main(arg_dict):
     cur_time = datetime.now() + timedelta(hours = 9)
     arg_dict["log_dir"] = "logs/" + cur_time.strftime("[%m-%d]%H.%M.%S")
     save_args(arg_dict)
-    if 'kaggle' in arg_dict['env']: copy_models(os.path.dirname(arg_dict['trained_model_path']), arg_dict['log_dir'], arg_dict['num_copy'], arg_dict['sample_exponentially'])
+    if arg_dict["trained_model_path"] and 'kaggle' in arg_dict['env']: copy_models(os.path.dirname(arg_dict['trained_model_path']), arg_dict['log_dir'], arg_dict['num_copy'], arg_dict['sample_exponentially'])
 
     np.set_printoptions(precision=3)
     np.set_printoptions(suppress=True)
