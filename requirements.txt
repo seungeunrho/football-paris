@@ -1,2 +1,4 @@
 torch
 tensorboardX
+matplotlib
+visdom==0.1.8.6
