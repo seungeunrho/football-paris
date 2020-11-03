@@ -104,17 +104,18 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
             
             signal_queue.put(1)
             data = get_data(queue, arg_dict, model)
-            loss, pi_loss, v_loss, entropy = model.train_net(data)
-            optimization_step += arg_dict["batch_size"]*arg_dict["buffer_size"]*arg_dict["k_epoch"]
+            if not arg_dict['check_wr']:
+                loss, pi_loss, v_loss, entropy = model.train_net(data)
+                optimization_step += arg_dict["batch_size"]*arg_dict["buffer_size"]*arg_dict["k_epoch"]
+                
+                print("step :", optimization_step, "loss", loss, "data_q", queue.qsize(), "summary_q", summary_queue.qsize())
+                loss_lst.append(loss)
+                pi_loss_lst.append(pi_loss)
+                v_loss_lst.append(v_loss)
+                entropy_lst.append(entropy)
+                center_model.load_state_dict(model.state_dict())
             
-            print("step :", optimization_step, "loss", loss, "data_q", queue.qsize(), "summary_q", summary_queue.qsize())
-            loss_lst.append(loss)
-            pi_loss_lst.append(pi_loss)
-            v_loss_lst.append(v_loss)
-            entropy_lst.append(entropy)
-            center_model.load_state_dict(model.state_dict())
-            
-            if queue.qsize() > arg_dict["batch_size"]*arg_dict["buffer_size"]:
+            if queue.qsize() > arg_dict["batch_size"]*arg_dict["buffer_size"] and not arg_dict['check_wr']:
                 print("warning. data remaining. queue size : ", queue.qsize())
             
             if summary_queue.qsize() > arg_dict["summary_game_window"]:

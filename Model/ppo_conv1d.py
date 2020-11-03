@@ -14,6 +14,8 @@ class PPO(nn.Module):
         if device:
             self.device = device
 
+        self.arg_dict = arg_dict
+
         self.fc_player = nn.Linear(arg_dict["feature_dims"]["player"],64)  
         self.fc_ball = nn.Linear(arg_dict["feature_dims"]["ball"],64)
         self.fc_left = nn.Linear(arg_dict["feature_dims"]["left_team"],32)
@@ -225,6 +227,17 @@ class PPO(nn.Module):
                 s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
                 pi, pi_move, v, _ = self.forward(s)
                 pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
+                if self.arg_dict['debug_mode']:
+                    l_debug_prob = {
+                            'prob': prob,
+                            'pi': pi,
+                            'pi_move': pi_move,
+                            'pi_prime': pi_prime,
+                            'pi_m_prime': pi_m_prime,
+                            }
+                    for k in l_debug_prob.keys():
+                        if torch.isnan(l_debug_prob[k]).any():
+                            print(f"train.net() - ERROR: {k} contains nan!")
 
                 td_target = r + self.gamma * v_prime * done_mask
                 delta = td_target - v                           # [horizon * batch_size * 1]

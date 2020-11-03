@@ -92,13 +92,14 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
         
         while not done:  # step loop
             init_t = time.time()
-            
-            is_stopped = False
-            while signal_queue.qsize() > 0:
-                time.sleep(0.02)
-                is_stopped = True
-            if is_stopped:
-                model.load_state_dict(center_model.state_dict())
+           
+            if not arg_dict['check_wr']:
+                is_stopped = False
+                while signal_queue.qsize() > 0:
+                    time.sleep(0.02)
+                    is_stopped = True
+                if is_stopped:
+                    model.load_state_dict(center_model.state_dict())
             wait_t += time.time() - init_t
             
             h_in = h_out
@@ -108,6 +109,14 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             t1 = time.time()
             with torch.no_grad():
                 a_prob, m_prob, _, h_out = model(state_dict_tensor)
+                if arg_dict['debug_mode']: 
+                    if torch.isnan(a_prob).any():
+                        print(f"actor - ERROR: a_prob contains nan!")
+                        return False
+                    if torch.isnan(m_prob).any():
+                        print(f"actor - ERROR: m_prob contains nan!")
+                        return False
+
             forward_t += time.time()-t1 
             real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
 
