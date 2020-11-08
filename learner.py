@@ -10,7 +10,8 @@ import torch.multiprocessing as mp
 from tensorboardX import SummaryWriter
 
 
-def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, optimization_step, self_play_board):
+def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst, v_loss_lst, \
+                  entropy_lst, move_entropy_lst, optimization_step, self_play_board):
     win, score, tot_reward, game_len = [], [], [], []
     loop_t, forward_t, wait_t = [], [], []
 
@@ -43,6 +44,7 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
     writer.add_scalar('train/pi_loss', np.mean(pi_loss_lst), n_game)
     writer.add_scalar('train/v_loss', np.mean(v_loss_lst), n_game)
     writer.add_scalar('train/entropy', np.mean(entropy_lst), n_game)
+    writer.add_scalar('train/move_entropy', np.mean(move_entropy_lst), n_game)
     
     self_window = 5
     for opp_num in self_play_board:
@@ -95,7 +97,7 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
         optimization_step = arg_dict["optimization_step"]
     last_saved_step = optimization_step
     n_game = 0
-    loss_lst, pi_loss_lst, v_loss_lst, entropy_lst = [], [], [], []
+    loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, move_entropy_lst = [], [], [], [], []
     self_play_board = {}
     
     while True:
@@ -105,7 +107,7 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
             signal_queue.put(1)
             data = get_data(queue, arg_dict, model)
             if not arg_dict['check_wr']:
-                loss, pi_loss, v_loss, entropy = model.train_net(data)
+                loss, pi_loss, v_loss, entropy, move_entropy = model.train_net(data)
                 optimization_step += arg_dict["batch_size"]*arg_dict["buffer_size"]*arg_dict["k_epoch"]
                 
                 print("step :", optimization_step, "loss", loss, "data_q", queue.qsize(), "summary_q", summary_queue.qsize())
@@ -113,6 +115,7 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
                 pi_loss_lst.append(pi_loss)
                 v_loss_lst.append(v_loss)
                 entropy_lst.append(entropy)
+                move_entropy_lst.append(move_entropy)
                 center_model.load_state_dict(model.state_dict())
             
             if queue.qsize() > arg_dict["batch_size"]*arg_dict["buffer_size"] and not arg_dict['check_wr']:
@@ -120,8 +123,8 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
             
             if summary_queue.qsize() > arg_dict["summary_game_window"]:
                 write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, \
-                              optimization_step, self_play_board)
-                loss_lst, pi_loss_lst, v_loss_lst, entropy_lst = [], [], [], []
+                              move_entropy_lst, optimization_step, self_play_board)
+                loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, move_entropy_lst = [], [], [], [], []
                 n_game += arg_dict["summary_game_window"]
                 
             _ = signal_queue.get()             

@@ -475,7 +475,7 @@ arg_dict = {
     "gamma" : 0.992,
     "lmbda" : 0.96,
     "entropy_coef" : 0.0,
-    "trained_model_dir" : "/kaggle_simulations/agent/model_8627520.tar",
+    "trained_model_dir" : "/kaggle_simulations/agent/model_submit.tar",
     "k_epoch" : 3,
 
 }
