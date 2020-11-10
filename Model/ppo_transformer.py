@@ -317,5 +317,5 @@ class PPO(nn.Module):
                 v_loss_lst.append(v_loss.item())
                 entropy_lst.append(entropy.mean().item())
                 
-        return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst) 
+        return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst), 0.
                 
