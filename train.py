@@ -43,10 +43,13 @@ def copy_models(dir_src, dir_dst, num_copy = 20, sample_exponentially = True): #
     #print(os.listdir(dir_dst))
     
 def main(arg_dict):
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+    
     cur_time = datetime.now() + timedelta(hours = 9)
     arg_dict["log_dir"] = "logs/" + cur_time.strftime("[%m-%d]%H.%M.%S")
     save_args(arg_dict)
-    if arg_dict["trained_model_path"] and 'kaggle' in arg_dict['env']: copy_models(os.path.dirname(arg_dict['trained_model_path']), arg_dict['log_dir'], arg_dict['num_copy'], arg_dict['sample_exponentially'])
+    if arg_dict["trained_model_path"] and 'kaggle' in arg_dict['env']: 
+        copy_models(os.path.dirname(arg_dict['trained_model_path']), arg_dict['log_dir'], arg_dict['num_copy'], arg_dict['sample_exponentially'])
 
     np.set_printoptions(precision=3)
     np.set_printoptions(suppress=True)
@@ -119,7 +122,9 @@ if __name__ == '__main__':
         "num_processes": 30,
         "batch_size": 32,   
         "buffer_size": 10,
-        "rollout_len": 50,
+
+        "rollout_len": 30,
+
         "lstm_size" : 256,
         "k_epoch" : 3,
         "summary_game_window" : 10,
@@ -127,22 +132,25 @@ if __name__ == '__main__':
         "learning_rate" : 0.0001,
         "gamma" : 0.993,
         "lmbda" : 0.96,
-        "entropy_coef" : 0.0005,
-        #"trained_model_path" : "logs/[11-03]10.12.21/model_20664000.tar",   # default : None
+
+        "entropy_coef" : 0.0002,
+        "move_entropy_coef" : 0.00005,
+        # "trained_model_path" : "logs/[11-05]00.45.18/model_25351200.tar",   # default : None
+
         "trained_model_path" : None,
         "print_mode" : False,
-        "latest_ratio" : 0.3,
+        "latest_ratio" : 0.5,
 
         # valid only when continuing from the previous experiments
-        "num_copy": 40, # number of models to be copied from the previous path
+        "num_copy": 100, # number of models to be copied from the previous path
         "sample_exponentially": False, # ways of choosing models to be copied from the previous path
 
         "check_wr": False, # used for checking win rates against specified environment
         "debug_mode": False, # used for checking whether NaN exists in one of policy outputs
         
-        "encoder" : "encoder_raw",
+        "encoder" : "encoder_raw2",
         "rewarder" : "rewarder_se",
-        "model" : "ppo_conv1d",
+        "model" : "ppo_conv1d_large",
 
         "env_evaluation":'11_vs_11_stochastic',
         #"visdom_server":'172.20.41.242', # Set visdom server address if you want to use it

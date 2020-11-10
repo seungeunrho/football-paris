@@ -1,6 +1,5 @@
 import gfootball.env as football_env
-import time, pprint, importlib, random
-import numpy as np
+import time, pprint, importlib, random, os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,12 +8,13 @@ from torch.distributions import Categorical
 import torch.multiprocessing as mp 
 from os import listdir
 from os.path import isfile, join
+import numpy as np
 
 
 from util import *
 from datetime import datetime, timedelta
 
-from Utils.drawer import Drawer
+# from Utils.drawer import Drawer
 
 def state_to_tensor(state_dict, h_in):
     player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
@@ -38,8 +38,13 @@ def state_to_tensor(state_dict, h_in):
     return state_dict_tensor
 
 
-def get_action(a_prob, m_prob):
-    a = Categorical(a_prob).sample().item()
+def get_action(a_prob, m_prob, is_deterministic=False):
+    
+    if is_deterministic:
+        a = torch.argmax(a_prob).item()
+    else:
+        a = Categorical(a_prob).sample().item()
+        
     m, need_m = 0, 0
     prob_selected_a = a_prob[0][0][a].item()
     prob_selected_m = 0
@@ -47,7 +52,10 @@ def get_action(a_prob, m_prob):
         real_action = a
         prob = prob_selected_a
     elif a==1:
-        m = Categorical(m_prob).sample().item()
+        if is_deterministic:
+            m = torch.argmax(m_prob).item()
+        else:
+            m = Categorical(m_prob).sample().item()
         need_m = 1
         real_action = m + 1
         prob_selected_m = m_prob[0][0][m].item()
@@ -61,6 +69,7 @@ def get_action(a_prob, m_prob):
     return real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m
 
 def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
     print("Actor process {} started".format(actor_num))
     fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
     rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
@@ -109,7 +118,10 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             with torch.no_grad():
                 a_prob, m_prob, _, h_out = model(state_dict_tensor)
             forward_t += time.time()-t1 
-            real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
+            if "act_deterministic" in arg_dict:
+                real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob, arg_dict["act_deterministic"])
+            else:
+                real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
 
             prev_obs = obs
             obs, rew, done, info = env.step(real_action)
@@ -127,8 +139,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             transition = (state_dict, a, m, fin_r, state_prime_dict, prob, done, need_m)
             rollout.append(transition)
             if len(rollout) == arg_dict["rollout_len"]:
-                if not (check_visdom and actor_num==0):
-                    data_queue.put(rollout)
+                data_queue.put(rollout)
                 rollout = []
                 model.load_state_dict(center_model.state_dict())
 
@@ -187,9 +198,9 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
     env = football_env.create_environment(env_name=arg_dict["env"], number_of_right_players_agent_controls=1, representation="raw", \
                                           stacked=False, logdir='/tmp/football', write_goal_dumps=False, write_full_episode_dumps=False, \
                                           render=False)
-    check_visdom = 'visdom_server' in arg_dict
-    if check_visdom:
-        drawer = Drawer(arg_dict['visdom_server'])
+#     check_visdom = 'visdom_server' in arg_dict
+#     if check_visdom:
+#         drawer = Drawer(arg_dict['visdom_server'])
 
     n_epi = 0
     rollout = []
@@ -235,6 +246,36 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
                 opp_a_prob, opp_m_prob, _, opp_h_out = model(opp_state_dict_tensor)
             forward_t += time.time()-t1 
             
+            
+
+            is_nan_me_a = torch.sum(torch.isnan(a_prob))
+            is_nan_me_b = torch.sum(torch.isnan(opp_a_prob))
+            is_nan_me_c = torch.sum(torch.isnan(m_prob))
+            is_nan_me_d = torch.sum(torch.isnan(opp_m_prob))
+                                    
+            is_nan = is_nan_me_a+is_nan_me_b+is_nan_me_c+is_nan_me_d
+                                    
+            is_nan = is_nan.item()
+            if is_nan > 0:
+                print(is_nan_me_a, is_nan_me_b, is_nan_me_c, is_nan_me_d)
+                print("a_prob")
+                print(a_prob)
+                print("opp_a_prob")
+                print(opp_a_prob)
+                print("m_prob")
+                print(m_prob)
+                print("opp_m_prob")
+                print(opp_m_prob)
+                print("obs")
+                print(obs)
+                print("opp_obs")
+                print(opp_obs)
+                print("obs np")
+                print(state_dict)
+                print("opp_obs np")
+                print(opp_state_dict)        
+
+            
             real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
             opp_real_action, _, _, _, _, _, _ = get_action(opp_a_prob, opp_m_prob)
 
@@ -244,8 +285,8 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
             state_prime_dict = fe.encode(obs)
 
             # draw visdom
-            if (check_visdom and actor_num==0):
-                drawer.draw(obs)
+#             if (check_visdom and actor_num==0):
+#                 drawer.draw(obs)
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
@@ -254,8 +295,7 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
             transition = (state_dict, a, m, fin_r, state_prime_dict, prob, done, need_m)
             rollout.append(transition)
             if len(rollout) == arg_dict["rollout_len"]:
-                if not (check_visdom and actor_num==0):
-                    data_queue.put(rollout)
+                data_queue.put(rollout)
                 rollout = []
                 model.load_state_dict(center_model.state_dict())
 

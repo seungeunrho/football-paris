@@ -68,13 +68,12 @@ class FeatureEncoder:
 
         obs_left_team = np.delete(obs['left_team'], player_num, axis=0)
         obs_left_team_direction = np.delete(obs['left_team_direction'], player_num, axis=0)
-#         left_team_relative = obs_left_team - obs['left_team'][player_num]
         left_team_relative = obs_left_team
-#         left_team_distance = np.linalg.norm(left_team_relative, axis=1, keepdims=True)
         left_team_distance = np.linalg.norm(left_team_relative - obs['left_team'][player_num], axis=1, keepdims=True)
         left_team_speed = np.linalg.norm(obs_left_team_direction, axis=1, keepdims=True)
         left_team_inner_product = np.sum(left_team_relative*obs_left_team_direction, axis=1, keepdims=True)
-        left_team_cos = left_team_inner_product/(left_team_distance*(left_team_speed+1e-8))
+#         left_team_cos = left_team_inner_product/(left_team_distance*(left_team_speed+1e-8))
+        left_team_cos = (left_team_inner_product/(left_team_distance*left_team_speed+1e-8))*0
         left_team_state = np.concatenate((left_team_relative*2, obs_left_team_direction*100, left_team_speed*100, \
                                           left_team_distance*2, left_team_cos), axis=1)
         left_closest_idx = np.argmin(left_team_distance)
@@ -83,13 +82,12 @@ class FeatureEncoder:
         
         obs_right_team = np.delete(obs['right_team'], player_num, axis=0)
         obs_right_team_direction = np.delete(obs['right_team_direction'], player_num, axis=0)
-#         right_team_relative = obs_right_team - obs['left_team'][player_num]
         right_team_relative = obs_right_team
-#         right_team_distance = np.linalg.norm(right_team_relative, axis=1, keepdims=True)
         right_team_distance = np.linalg.norm(right_team_relative - obs['left_team'][player_num], axis=1, keepdims=True)
         right_team_speed = np.linalg.norm(obs_right_team_direction, axis=1, keepdims=True)
         right_team_inner_product = np.sum(right_team_relative*obs_right_team_direction, axis=1, keepdims=True)
-        right_team_cos = right_team_inner_product/(right_team_distance*(right_team_speed+1e-8))
+#         right_team_cos = right_team_inner_product/(right_team_distance*right_team_speed+1e-8)
+        right_team_cos = (right_team_inner_product/(right_team_distance*right_team_speed+1e-8))*0
         right_team_state = np.concatenate((right_team_relative*2, obs_right_team_direction*100, right_team_speed*100, \
                                            right_team_distance*2, right_team_cos), axis=1)
         right_closest_idx = np.argmin(right_team_distance)
