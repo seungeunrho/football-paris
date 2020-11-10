@@ -14,6 +14,8 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
     win, score, tot_reward, game_len = [], [], [], []
     loop_t, forward_t, wait_t = [], [], []
 
+    win_evaluation, score_evaluation = [], []
+
     for i in range(arg_dict["summary_game_window"]):
         game_data = summary_queue.get()
         if arg_dict["env"] == "11_vs_11_kaggle":
@@ -24,13 +26,19 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
                 self_play_board[opp_num] = [a]
         else:
             a,b,c,d,t1,t2,t3 = game_data
-        win.append(a)
-        score.append(b)
-        tot_reward.append(c)
-        game_len.append(d)
-        loop_t.append(t1)
-        forward_t.append(t2)
-        wait_t.append(t3)
+
+        if 'env_evaluation' in arg_dict and opp_num==arg_dict['env_evaluation']:
+            a,b,c,d,env_evaluation,t1,t2,t3 = game_data
+            win_evaluation.append(a)
+            score_evaluation.append(b)
+        else:
+            win.append(a)
+            score.append(b)
+            tot_reward.append(c)
+            game_len.append(d)
+            loop_t.append(t1)
+            forward_t.append(t2)
+            wait_t.append(t3)
     writer.add_scalar('game/win_rate', float(np.mean(win)), n_game)
     writer.add_scalar('game/score', float(np.mean(score)), n_game)
     writer.add_scalar('game/reward', float(np.mean(tot_reward)), n_game)
@@ -43,6 +51,10 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
     writer.add_scalar('train/pi_loss', np.mean(pi_loss_lst), n_game)
     writer.add_scalar('train/v_loss', np.mean(v_loss_lst), n_game)
     writer.add_scalar('train/entropy', np.mean(entropy_lst), n_game)
+
+    if len(win_evaluation)>0:
+        writer.add_scalar('game/win_rate_evaluation', float(np.mean(win_evaluation)), n_game)
+        writer.add_scalar('game/score_evaluation', float(np.mean(score_evaluation)), n_game)
     
     self_window = 5
     for opp_num in self_play_board:
@@ -104,17 +116,18 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
             
             signal_queue.put(1)
             data = get_data(queue, arg_dict, model)
-            loss, pi_loss, v_loss, entropy = model.train_net(data)
-            optimization_step += arg_dict["batch_size"]*arg_dict["buffer_size"]*arg_dict["k_epoch"]
+            if not arg_dict['check_wr']:
+                loss, pi_loss, v_loss, entropy = model.train_net(data)
+                optimization_step += arg_dict["batch_size"]*arg_dict["buffer_size"]*arg_dict["k_epoch"]
+                
+                print("step :", optimization_step, "loss", loss, "data_q", queue.qsize(), "summary_q", summary_queue.qsize())
+                loss_lst.append(loss)
+                pi_loss_lst.append(pi_loss)
+                v_loss_lst.append(v_loss)
+                entropy_lst.append(entropy)
+                center_model.load_state_dict(model.state_dict())
             
-            print("step :", optimization_step, "loss", loss, "data_q", queue.qsize(), "summary_q", summary_queue.qsize())
-            loss_lst.append(loss)
-            pi_loss_lst.append(pi_loss)
-            v_loss_lst.append(v_loss)
-            entropy_lst.append(entropy)
-            center_model.load_state_dict(model.state_dict())
-            
-            if queue.qsize() > arg_dict["batch_size"]*arg_dict["buffer_size"]:
+            if queue.qsize() > arg_dict["batch_size"]*arg_dict["buffer_size"] and not arg_dict['check_wr']:
                 print("warning. data remaining. queue size : ", queue.qsize())
             
             if summary_queue.qsize() > arg_dict["summary_game_window"]:
