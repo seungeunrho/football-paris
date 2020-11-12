@@ -135,14 +135,14 @@ if __name__ == '__main__':
 
         "entropy_coef" : 0.0002,
         "move_entropy_coef" : 0.00005,
-        # "trained_model_path" : "logs/[11-05]00.45.18/model_25351200.tar",   # default : None
 
-        "trained_model_path" : None,
+        "trained_model_path" : "logs/[11-10]10.20.17/model_18950400.tar",   # default : None
+        #"trained_model_path" : None,
         "print_mode" : False,
-        "latest_ratio" : 0.5,
+        "latest_ratio" : 0.2,
 
         # valid only when continuing from the previous experiments
-        "num_copy": 100, # number of models to be copied from the previous path
+        "num_copy": 500, # number of models to be copied from the previous path
         "sample_exponentially": False, # ways of choosing models to be copied from the previous path
 
         "check_wr": False, # used for checking win rates against specified environment
