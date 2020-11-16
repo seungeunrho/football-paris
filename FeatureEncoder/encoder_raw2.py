@@ -155,20 +155,7 @@ class FeatureEncoder:
             avail = [1,0,0,0,0,0,0,0,0,0,0,0]
             avail[SHOT] = 1
             return np.array(avail)
-        
-        
-#         if obs['ball_owned_team'] == 0:  # our team 
-#             if obs['game_mode'] == 2:  # GoalKick
-#                 avail[SPRINT], avail[DRIBBLE] = 0, 0
-#             elif obs['game_mode'] == 3:  # FreeKick
-#                 avail[DRIBBLE] = 0
-#             elif obs['game_mode'] == 4:  # Corner
-#                 avail[SHOT], avail[SPRINT], avail[DRIBBLE] = 0, 0, 0
-#             elif obs['game_mode'] == 5:  #ThrowIn
-#                 avail[SHOT], avail[SPRINT], avail[DRIBBLE] = 0, 0, 0
-#             elif obs['game_mode'] == 6:  # Penalty
-#                 avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[DRIBBLE] = 0, 0, 0, 0
-            
+
         return np.array(avail)
         
     def _encode_ball_which_zone(self, ball_x, ball_y):

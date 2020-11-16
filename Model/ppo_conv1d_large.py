@@ -218,65 +218,134 @@ class PPO(nn.Module):
     
 
     def train_net(self, data):
+        data_with_adv = []
+        
         tot_loss_lst = []
         pi_loss_lst = []
         entropy_lst = []
         move_entropy_lst = []
         v_loss_lst = []
-        for i in range(self.K_epoch):
+        
+        with torch.no_grad():
             for mini_batch in data:
                 s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
+                for key in s:   
+                    if key == "hidden":
+                        continue
+                    is_inf_a = torch.sum(torch.isinf(s[key]))
+                    if is_inf_a.item() > 0:
+                        print("error!!!!!!!!!!!!!!!!!!")
+                        print(key, s[key].size(), s[key])
+                for key in s_prime:   
+                    if key == "hidden":
+                        continue
+                    is_inf_a = torch.sum(torch.isinf(s_prime[key]))
+                    if is_inf_a.item() > 0:
+                        print("error!!!!!!!!!!!!!!!!!!")
+                        print(key, s_prime[key].size(), s_prime[key])
+                for key in s:   
+                    if key == "hidden":
+                        continue
+                    is_nan_a = torch.sum(torch.isnan(s[key]))
+                    if is_nan_a.item() > 0:
+                        print("error!!!!!!!!!!!!!!!!!!")
+                        print(key, s[key].size(), s[key])
+                for key in s_prime:   
+                    if key == "hidden":
+                        continue
+                    is_nan_a = torch.sum(torch.isnan(s_prime[key]))
+                    if is_nan_a.item() > 0:
+                        print("error!!!!!!!!!!!!!!!!!!")
+                        print(key, s_prime[key].size(), s_prime[key])
+                is_inf_b = torch.sum(torch.isinf(a))
+                is_inf_c = torch.sum(torch.isinf(m))
+                is_inf_d = torch.sum(torch.isinf(r))
+                is_inf_f = torch.sum(torch.isinf(done_mask))
+                is_inf_g = torch.sum(torch.isinf(prob))
+                is_inf_h = torch.sum(torch.isinf(need_move))
+                
+
+                is_nan_b = torch.sum(torch.isnan(a))
+                is_nan_c = torch.sum(torch.isnan(m))
+                is_nan_d = torch.sum(torch.isnan(r))
+                is_nan_f = torch.sum(torch.isnan(done_mask))
+                is_nan_g = torch.sum(torch.isnan(prob))
+                is_nan_h = torch.sum(torch.isnan(need_move))
+
+                is_inf = is_inf_b + is_inf_c + is_inf_d + is_inf_f + is_inf_g +is_inf_h
+                is_inf = is_inf.item()
+                is_nan = is_nan_b + is_nan_c + is_nan_d + is_nan_f + is_nan_g +is_nan_h
+                is_nan = is_nan.item()
+                
+                if is_inf > 0 or is_nan > 0:
+                    print("error!!!!!!!!!!!!!!!!!!")
+                    print("a", a.size(), a)
+                    print("r", m.size(), m)
+                    print("m", r.size(), r)
+                    print("done_mask", done_mask.size(), done_mask)
+                    print("prob", prob.size(), prob)
+                    print("need_move", need_move.size(), need_move)
+
+
+        for mini_batch in data:
+            s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
+            with torch.no_grad():
                 pi, pi_move, v, _ = self.forward(s)
                 pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
-                if self.arg_dict['debug_mode']:
-                    l_debug_prob = {
-                            'prob': prob,
-                            'pi': pi,
-                            'pi_move': pi_move,
-                            'pi_prime': pi_prime,
-                            'pi_m_prime': pi_m_prime,
-                            }
-                    for k in l_debug_prob.keys():
-                        if torch.isnan(l_debug_prob[k]).any():
-                            print(f"train.net() - ERROR: {k} contains nan!")
 
-                td_target = r + self.gamma * v_prime * done_mask
-                delta = td_target - v                           # [horizon * batch_size * 1]
-                delta = delta.detach().cpu().numpy()
+            td_target = r + self.gamma * v_prime * done_mask
+            delta = td_target - v                           # [horizon * batch_size * 1]
+            delta = delta.detach().cpu().numpy()
 
-                advantage_lst = []
-                advantage = np.array([0])
-                for delta_t in delta[::-1]:
-                    advantage = self.gamma * self.lmbda * advantage + delta_t           
-                    advantage_lst.append(advantage)
-                advantage_lst.reverse()
-                advantage = torch.tensor(advantage_lst, dtype=torch.float, device=self.device)
-
+            advantage_lst = []
+            advantage = np.array([0])
+            for delta_t in delta[::-1]:
+                advantage = self.gamma * self.lmbda * advantage + delta_t           
+                advantage_lst.append(advantage)
+            advantage_lst.reverse()
+            advantage = torch.tensor(advantage_lst, dtype=torch.float, device=self.device)
+            
+            data_with_adv.append((s, a, m, r, s_prime, done_mask, prob, need_move, td_target, advantage))
+        
+        for i in range(self.K_epoch):
+            for mini_batch in data_with_adv:
+                s, a, m, r, s_prime, done_mask, prob, need_move, td_target, advantage = mini_batch
+                pi, pi_move, v, _ = self.forward(s)
+                pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
+                
                 pi_a = pi.gather(2,a)
                 pi_m = pi_move.gather(2,m)
-                pi_am = pi_a - pi_a*need_move*(1-pi_m)
+                pi_am = pi_a*(1-need_move + need_move*pi_m)
                 ratio = torch.exp(torch.log(pi_am) - torch.log(prob))  # a/b == exp(log(a)-log(b))
 
                 surr1 = ratio * advantage
                 surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-                entropy = -torch.sum(pi*torch.log(pi+ 1e-7), dim=2, keepdim=True)
-                move_entropy = -need_move*torch.sum(pi_m*torch.log(pi_m+1e-7), dim=2, keepdim=True)
+#                 entropy = -torch.sum(pi*torch.log(pi+ 1e-7), dim=2, keepdim=True)
+#                 move_entropy = -need_move*(pi_m*torch.log(pi_m+1e-7), dim=2, keepdim=True)
+                entropy = -torch.log(pi_am)
+                move_entropy = -need_move*torch.log(pi_m)
 
                 surr_loss = -torch.min(surr1, surr2)
                 v_loss = F.smooth_l1_loss(v, td_target.detach())
-                entropy_loss = -1*self.entropy_coef*entropy -1*self.move_entropy_coef*move_entropy
-                loss = surr_loss + v_loss + entropy_loss
+#                 entropy_loss = -1*self.entropy_coef*entropy -1*self.move_entropy_coef*move_entropy
+                entropy_loss = -1*self.entropy_coef*entropy
+                loss = surr_loss + v_loss + entropy_loss.mean()
                 loss = loss.mean()
                 
                 self.optimizer.zero_grad()
                 loss.backward()
+                nn.utils.clip_grad_norm_(self.parameters(), 3.0)
                 self.optimizer.step()
                 
                 tot_loss_lst.append(loss.item())
                 pi_loss_lst.append(surr_loss.mean().item())
                 v_loss_lst.append(v_loss.item())
                 entropy_lst.append(entropy.mean().item())
-                move_entropy_lst.append((torch.sum(move_entropy)/torch.sum(need_move)).item())
+                n_need_move = torch.sum(need_move).item()
+                if n_need_move == 0:
+                    move_entropy_lst.append(0)
+                else:
+                    move_entropy_lst.append((torch.sum(move_entropy)/n_need_move).item())
                 
         return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst), np.mean(move_entropy_lst)
                 

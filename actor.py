@@ -38,13 +38,9 @@ def state_to_tensor(state_dict, h_in):
     return state_dict_tensor
 
 
-def get_action(a_prob, m_prob, is_deterministic=False):
+def get_action(a_prob, m_prob):
     
-    if is_deterministic:
-        a = torch.argmax(a_prob).item()
-    else:
-        a = Categorical(a_prob).sample().item()
-        
+    a = Categorical(a_prob).sample().item()    
     m, need_m = 0, 0
     prob_selected_a = a_prob[0][0][a].item()
     prob_selected_m = 0
@@ -52,10 +48,7 @@ def get_action(a_prob, m_prob, is_deterministic=False):
         real_action = a
         prob = prob_selected_a
     elif a==1:
-        if is_deterministic:
-            m = torch.argmax(m_prob).item()
-        else:
-            m = Categorical(m_prob).sample().item()
+        m = Categorical(m_prob).sample().item()
         need_m = 1
         real_action = m + 1
         prob_selected_m = m_prob[0][0][m].item()
@@ -65,6 +58,7 @@ def get_action(a_prob, m_prob, is_deterministic=False):
         prob = prob_selected_a
 
     assert prob != 0, 'prob 0 ERROR!!!! a : {}, m:{}  {}, {}'.format(a,m,prob_selected_a,prob_selected_m)
+    
     
     return real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m
 
@@ -127,10 +121,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
                         return False
 
             forward_t += time.time()-t1 
-            if "act_deterministic" in arg_dict:
-                real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob, arg_dict["act_deterministic"])
-            else:
-                real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
+            real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
 
             prev_obs = obs
             obs, rew, done, info = env.step(real_action)
@@ -320,7 +311,7 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
             if done:
                 if score > 0:
                     win = 1
-                print("score",score,"total reward",tot_reward)
+                print("score {}, total reward {:.2f}, opp num:{}, opp:{} ".format(score,tot_reward,opp_model_num, opp_model_path))
                 summary_data = (win, score, tot_reward, steps, str(opp_model_num), loop_t/steps, forward_t/steps, wait_t/steps)
                 summary_queue.put(summary_data)                
 
