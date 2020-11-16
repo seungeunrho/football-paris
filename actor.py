@@ -9,6 +9,7 @@ import torch.multiprocessing as mp
 from os import listdir
 from os.path import isfile, join
 import numpy as np
+import pickle
 
 
 from util import *
@@ -95,14 +96,13 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
         
         while not done:  # step loop
             init_t = time.time()
-           
-            if not arg_dict['check_wr']:
-                is_stopped = False
-                while signal_queue.qsize() > 0:
-                    time.sleep(0.02)
-                    is_stopped = True
-                if is_stopped:
-                    model.load_state_dict(center_model.state_dict())
+            
+            is_stopped = False
+            while signal_queue.qsize() > 0:
+                time.sleep(0.02)
+                is_stopped = True
+            if is_stopped:
+                model.load_state_dict(center_model.state_dict())
             wait_t += time.time() - init_t
             
             h_in = h_out
@@ -112,14 +112,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             t1 = time.time()
             with torch.no_grad():
                 a_prob, m_prob, _, h_out = model(state_dict_tensor)
-                if arg_dict['debug_mode']: 
-                    if torch.isnan(a_prob).any():
-                        print(f"actor - ERROR: a_prob contains nan!")
-                        return False
-                    if torch.isnan(m_prob).any():
-                        print(f"actor - ERROR: m_prob contains nan!")
-                        return False
-
             forward_t += time.time()-t1 
             real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
 
@@ -204,6 +196,7 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
 
     n_epi = 0
     rollout = []
+    cache_bkup = []
     while True: # episode loop
         opp_model_num, opp_model_path = select_opponent(arg_dict)
         checkpoint = torch.load(opp_model_path, map_location=cpu_device)
@@ -274,6 +267,12 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
                 print(state_dict)
                 print("opp_obs np")
                 print(opp_state_dict)        
+                # dump rollout 
+                dump_dir = arg_dict['log_dir'] + '/dumps'
+                if not os.path.exists(dump_dir): 
+                    os.makedirs(dump_dir)
+                with open(f"{dump_dir}/actor_{actor_num}.dump", 'wb') as f_bkup:
+                    pickle.dump(cache_bkup, f_bkup)
 
             
             real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
@@ -298,6 +297,9 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
                 data_queue.put(rollout)
                 rollout = []
                 model.load_state_dict(center_model.state_dict())
+            cache_bkup.append(transition)
+            if len(cache_bkup) > arg_dict["rollout_len"]:
+                cache_bkup.pop(0)
 
             steps += 1
             score += rew

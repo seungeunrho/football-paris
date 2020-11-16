@@ -11,8 +11,8 @@ from tensorboardX import SummaryWriter
 
 from actor import *
 from learner import *
+from evaluator import evaluator
 from datetime import datetime, timedelta
-
 
 
 def save_args(arg_dict):
@@ -99,6 +99,11 @@ def main(arg_dict):
             p = mp.Process(target=actor, args=(rank, center_model, data_queue, signal_queue, summary_queue, arg_dict))
         p.start()
         processes.append(p)
+    
+    if "env_evaluation" in arg_dict:
+        p = mp.Process(target=evaluator, args=(center_model, signal_queue, summary_queue, arg_dict))
+        p.start()
+        processes.append(p)
         
     for p in processes:
         p.join()
@@ -112,11 +117,13 @@ if __name__ == '__main__':
 
     # hyperparameters
     arg_dict = {
+        #"env": "11_vs_11_kaggle",
         "env": "11_vs_11_kaggle",
         "num_processes": 9,
         "batch_size": 32,   
         "buffer_size": 6,
         "rollout_len": 30,
+
         "lstm_size" : 256,
         "k_epoch" : 3,
         "summary_game_window" : 10,
@@ -132,7 +139,7 @@ if __name__ == '__main__':
         "latest_ratio" : 0.3,
 
         # valid only when continuing from the previous experiments
-        "num_copy": 100, # number of models to be copied from the previous path
+        "num_copy": 500, # number of models to be copied from the previous path
         "sample_exponentially": False, # ways of choosing models to be copied from the previous path
 
         "check_wr": False, # used for checking win rates against specified environment
@@ -142,8 +149,9 @@ if __name__ == '__main__':
         "rewarder" : "rewarder_se",
         "model" : "ppo_conv1d_large",
 
-
+        "env_evaluation":'11_vs_11_stochastic',
         #"visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
+
     }
 
 

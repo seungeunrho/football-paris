@@ -11,9 +11,10 @@ from tensorboardX import SummaryWriter
 
 
 def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst, v_loss_lst, \
-                  entropy_lst, move_entropy_lst, optimization_step, self_play_board):
+                  entropy_lst, move_entropy_lst, optimization_step, self_play_board, win_evaluation, score_evaluation):
     win, score, tot_reward, game_len = [], [], [], []
     loop_t, forward_t, wait_t = [], [], []
+
 
     for i in range(arg_dict["summary_game_window"]):
         game_data = summary_queue.get()
@@ -25,13 +26,19 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
                 self_play_board[opp_num] = [a]
         else:
             a,b,c,d,t1,t2,t3 = game_data
-        win.append(a)
-        score.append(b)
-        tot_reward.append(c)
-        game_len.append(d)
-        loop_t.append(t1)
-        forward_t.append(t2)
-        wait_t.append(t3)
+
+        if 'env_evaluation' in arg_dict and opp_num==arg_dict['env_evaluation']:
+            a,b,c,d,env_evaluation,t1,t2,t3 = game_data
+            win_evaluation.append(a)
+            score_evaluation.append(b)
+        else:
+            win.append(a)
+            score.append(b)
+            tot_reward.append(c)
+            game_len.append(d)
+            loop_t.append(t1)
+            forward_t.append(t2)
+            wait_t.append(t3)
     writer.add_scalar('game/win_rate', float(np.mean(win)), n_game)
     writer.add_scalar('game/score', float(np.mean(score)), n_game)
     writer.add_scalar('game/reward', float(np.mean(tot_reward)), n_game)
@@ -44,6 +51,13 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
     writer.add_scalar('train/pi_loss', np.mean(pi_loss_lst), n_game)
     writer.add_scalar('train/v_loss', np.mean(v_loss_lst), n_game)
     writer.add_scalar('train/entropy', np.mean(entropy_lst), n_game)
+
+    #if len(win_evaluation)>0:
+    if len(win_evaluation)>arg_dict['summary_game_window']:
+        writer.add_scalar('game/win_rate_evaluation', float(np.mean(win_evaluation)), n_game)
+        writer.add_scalar('game/score_evaluation', float(np.mean(score_evaluation)), n_game)
+        win_evaluation, score_evaluation = [], []
+
     writer.add_scalar('train/move_entropy', np.mean(move_entropy_lst), n_game)
     
     self_window = 5
@@ -52,6 +66,8 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
             label = 'self_play/'+opp_num
             writer.add_scalar(label, np.mean(self_play_board[opp_num][:self_window]), n_game)
             self_play_board[opp_num] = self_play_board[opp_num][self_window:]
+
+    return win_evaluation, score_evaluation
 
 def save_model(model, arg_dict, optimization_step, last_saved_step):
     if optimization_step >= last_saved_step + arg_dict["model_save_interval"]:
@@ -99,6 +115,8 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
     n_game = 0
     loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, move_entropy_lst = [], [], [], [], []
     self_play_board = {}
+
+    win_evaluation, score_evaluation = [], []
     
     while True:
         if queue.qsize() > arg_dict["batch_size"]*arg_dict["buffer_size"]:
@@ -122,8 +140,7 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
                 print("warning. data remaining. queue size : ", queue.qsize())
             
             if summary_queue.qsize() > arg_dict["summary_game_window"]:
-                write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, \
-                              move_entropy_lst, optimization_step, self_play_board)
+                win_evaluation, score_evaluation = write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, move_entropy_lst, optimization_step, self_play_board, win_evaluation, score_evaluation)
                 loss_lst, pi_loss_lst, v_loss_lst, entropy_lst, move_entropy_lst = [], [], [], [], []
                 n_game += arg_dict["summary_game_window"]
                 
