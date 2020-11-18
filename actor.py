@@ -163,8 +163,14 @@ def select_opponent(arg_dict):
     model_num_lst.sort()
             
     coin = random.random()
+
+    arg_dict["latest_n_model"]
+    
     if coin<arg_dict["latest_ratio"]:
-        opp_model_num = len(model_num_lst)-1
+        if len(model_num_lst) > arg_dict["latest_n_model"]:
+            opp_model_num = random.randint(len(model_num_lst)-arg_dict["latest_n_model"],len(model_num_lst)-1)
+        else:
+            opp_model_num = len(model_num_lst)-1
     else:
         opp_model_num = random.randint(0,len(model_num_lst)-1)
         

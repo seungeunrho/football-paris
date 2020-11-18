@@ -137,6 +137,7 @@ if __name__ == '__main__':
 #         "trained_model_path" : None,
         "print_mode" : False,
         "latest_ratio" : 0.3,
+        "latest_n_model" : 10,
 
         # valid only when continuing from the previous experiments
         "num_copy": 500, # number of models to be copied from the previous path
