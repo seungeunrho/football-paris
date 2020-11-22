@@ -117,9 +117,9 @@ if __name__ == '__main__':
 
     # hyperparameters
     arg_dict = {
-        #"env": "11_vs_11_kaggle",
         "env": "11_vs_11_kaggle",
-        "num_processes": 9,
+#         "env": "11_vs_11_stochastic",
+        "num_processes": 30,
         "batch_size": 32,   
         "buffer_size": 6,
         "rollout_len": 30,
@@ -127,16 +127,16 @@ if __name__ == '__main__':
         "lstm_size" : 256,
         "k_epoch" : 3,
         "summary_game_window" : 10,
-        "model_save_interval" : 200000,
-        "learning_rate" : 0.00005,
+        "model_save_interval" : 300000,
+        "learning_rate" : 0.0001,
         "gamma" : 0.993,
         "lmbda" : 0.96,
         "entropy_coef" : 0.0001,
         "move_entropy_coef" : 0.00002,
-        "trained_model_path" : "logs/[11-13]10.05.42/model_24173568.tar",   # default : None
-#         "trained_model_path" : None,
+#         "trained_model_path" : "logs/[11-13]10.05.42/model_24173568.tar",   # default : None
+        "trained_model_path" : None,
         "print_mode" : False,
-        "latest_ratio" : 0.3,
+        "latest_ratio" : 0.5,
         "latest_n_model" : 10,
 
         # valid only when continuing from the previous experiments
@@ -146,19 +146,14 @@ if __name__ == '__main__':
         "check_wr": False, # used for checking win rates against specified environment
         "debug_mode": False, # used for checking whether NaN exists in one of policy outputs
         
-        "encoder" : "encoder_raw2",
+        "encoder" : "encoder_raw3",
         "rewarder" : "rewarder_se",
-        "model" : "ppo_conv1d_large",
+        "model" : "ppo_attention2",
 
         "env_evaluation":'11_vs_11_stochastic',
         #"visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
 
     }
-
-
-
-
-
     
     main(arg_dict)
     
