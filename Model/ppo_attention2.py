@@ -285,67 +285,6 @@ class PPO(nn.Module):
         move_entropy_lst = []
         v_loss_lst = []
         
-        with torch.no_grad():
-            for mini_batch in data:
-                s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
-                for key in s:   
-                    if key == "hidden":
-                        continue
-                    is_inf_a = torch.sum(torch.isinf(s[key]))
-                    if is_inf_a.item() > 0:
-                        print("error!!!!!!!!!!!!!!!!!!")
-                        print(key, s[key].size(), s[key])
-                for key in s_prime:   
-                    if key == "hidden":
-                        continue
-                    is_inf_a = torch.sum(torch.isinf(s_prime[key]))
-                    if is_inf_a.item() > 0:
-                        print("error!!!!!!!!!!!!!!!!!!")
-                        print(key, s_prime[key].size(), s_prime[key])
-                for key in s:   
-                    if key == "hidden":
-                        continue
-                    is_nan_a = torch.sum(torch.isnan(s[key]))
-                    if is_nan_a.item() > 0:
-                        print("error!!!!!!!!!!!!!!!!!!")
-                        print(key, s[key].size(), s[key])
-                for key in s_prime:   
-                    if key == "hidden":
-                        continue
-                    is_nan_a = torch.sum(torch.isnan(s_prime[key]))
-                    if is_nan_a.item() > 0:
-                        print("error!!!!!!!!!!!!!!!!!!")
-                        print(key, s_prime[key].size(), s_prime[key])
-                is_inf_b = torch.sum(torch.isinf(a))
-                is_inf_c = torch.sum(torch.isinf(m))
-                is_inf_d = torch.sum(torch.isinf(r))
-                is_inf_f = torch.sum(torch.isinf(done_mask))
-                is_inf_g = torch.sum(torch.isinf(prob))
-                is_inf_h = torch.sum(torch.isinf(need_move))
-                
-
-                is_nan_b = torch.sum(torch.isnan(a))
-                is_nan_c = torch.sum(torch.isnan(m))
-                is_nan_d = torch.sum(torch.isnan(r))
-                is_nan_f = torch.sum(torch.isnan(done_mask))
-                is_nan_g = torch.sum(torch.isnan(prob))
-                is_nan_h = torch.sum(torch.isnan(need_move))
-
-                is_inf = is_inf_b + is_inf_c + is_inf_d + is_inf_f + is_inf_g +is_inf_h
-                is_inf = is_inf.item()
-                is_nan = is_nan_b + is_nan_c + is_nan_d + is_nan_f + is_nan_g +is_nan_h
-                is_nan = is_nan.item()
-                
-                if is_inf > 0 or is_nan > 0:
-                    print("error!!!!!!!!!!!!!!!!!!")
-                    print("a", a.size(), a)
-                    print("r", m.size(), m)
-                    print("m", r.size(), r)
-                    print("done_mask", done_mask.size(), done_mask)
-                    print("prob", prob.size(), prob)
-                    print("need_move", need_move.size(), need_move)
-
-
         for mini_batch in data:
             s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
             with torch.no_grad():

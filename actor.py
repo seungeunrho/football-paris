@@ -208,6 +208,7 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
         checkpoint = torch.load(opp_model_path, map_location=cpu_device)
         opp_model.load_state_dict(checkpoint['model_state_dict'])
         print("Current Opponent model Num:{}, Path:{} successfully loaded".format(opp_model_num, opp_model_path))
+        del checkpoint
         
         env.reset()   
         done = False
@@ -244,42 +245,6 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
                 a_prob, m_prob, _, h_out = model(state_dict_tensor)
                 opp_a_prob, opp_m_prob, _, opp_h_out = model(opp_state_dict_tensor)
             forward_t += time.time()-t1 
-            
-            
-
-            is_nan_me_a = torch.sum(torch.isnan(a_prob))
-            is_nan_me_b = torch.sum(torch.isnan(opp_a_prob))
-            is_nan_me_c = torch.sum(torch.isnan(m_prob))
-            is_nan_me_d = torch.sum(torch.isnan(opp_m_prob))
-                                    
-            is_nan = is_nan_me_a+is_nan_me_b+is_nan_me_c+is_nan_me_d
-                                    
-            is_nan = is_nan.item()
-            if is_nan > 0:
-                print(is_nan_me_a, is_nan_me_b, is_nan_me_c, is_nan_me_d)
-                print("a_prob")
-                print(a_prob)
-                print("opp_a_prob")
-                print(opp_a_prob)
-                print("m_prob")
-                print(m_prob)
-                print("opp_m_prob")
-                print(opp_m_prob)
-                print("obs")
-                print(obs)
-                print("opp_obs")
-                print(opp_obs)
-                print("obs np")
-                print(state_dict)
-                print("opp_obs np")
-                print(opp_state_dict)        
-                # dump rollout 
-                dump_dir = arg_dict['log_dir'] + '/dumps'
-                if not os.path.exists(dump_dir): 
-                    os.makedirs(dump_dir)
-                with open(f"{dump_dir}/actor_{actor_num}.dump", 'wb') as f_bkup:
-                    pickle.dump(cache_bkup, f_bkup)
-
             
             real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)
             opp_real_action, _, _, _, _, _, _ = get_action(opp_a_prob, opp_m_prob)
