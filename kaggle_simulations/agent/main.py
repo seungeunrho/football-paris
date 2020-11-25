@@ -317,8 +317,10 @@ arg_dict = {
     "lmbda" : 0.96,
     "entropy_coef" : 0.0,
     "move_entropy_coef" : 0.0,
-    "trained_model_path" : "/kaggle_simulations/agent/model_44790912.tar",
-    "k_epoch" : 3
+    "trained_model_path" : "/kaggle_simulations/agent/model_30187008.tar",
+    "k_epoch" : 3,
+    
+    "arg_max" : False
 
 }
 arg_dict["feature_dims"] = fe.get_feature_dims()
@@ -347,18 +349,21 @@ def agent(obs):
     with torch.no_grad():
         a_prob, m_prob, _, hidden = model(state_dict_tensor)
         
-    a = Categorical(a_prob).sample().item()
+    if arg_dict["arg_max"]:
+        a = torch.argmax(a_prob).item()
+    else:
+        a = Categorical(a_prob).sample().item()
+        
     real_action = 0
     if a==0:
         real_action = int(a)
     elif a==1:
-        m = Categorical(m_prob).sample().item()
+        if arg_dict["arg_max"]:
+            m = torch.argmax(m_prob).item()
+        else:
+            m = Categorical(m_prob).sample().item()
         real_action = int(m + 1)
     else:
         real_action = int(a + 7)
 
-#     if steps % 50 == 0:
-#         process = psutil.Process(os.getpid())
-#         print(steps, process.memory_info().rss/1000000)  # in bytes 
-
-    return [int(real_action)]
+    return [real_action]
