@@ -14,7 +14,7 @@ from os.path import isfile, join
 from util import *
 from datetime import datetime, timedelta
 
-from Utils.drawer import Drawer
+# from Utils.drawer import Drawer
 
 def state_to_tensor(state_dict, h_in):
     player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)

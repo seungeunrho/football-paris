@@ -60,7 +60,7 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
 
     writer.add_scalar('train/move_entropy', np.mean(move_entropy_lst), n_game)
     
-    self_window = 5
+    self_window = 3
     for opp_num in self_play_board:
         if len(self_play_board[opp_num]) >= self_window:
             label = 'self_play/'+opp_num

@@ -119,7 +119,7 @@ if __name__ == '__main__':
     arg_dict = {
         "env": "11_vs_11_kaggle",
 #         "env": "11_vs_11_stochastic",
-        "num_processes": 30,
+        "num_processes": 9,
         "batch_size": 32,   
         "buffer_size": 6,
         "rollout_len": 30,
@@ -133,8 +133,8 @@ if __name__ == '__main__':
         "lmbda" : 0.96,
         "entropy_coef" : 0.0001,
         "move_entropy_coef" : 0.00002,
-#         "trained_model_path" : "logs/[11-13]10.05.42/model_24173568.tar",   # default : None
-        "trained_model_path" : None,
+        "trained_model_path" : "logs/[11-29]00.35.38/model_112048128.tar",   # default : None
+#         "trained_model_path" : None,
         "print_mode" : False,
         "latest_ratio" : 0.5,
         "latest_n_model" : 10,
@@ -146,11 +146,11 @@ if __name__ == '__main__':
         "check_wr": False, # used for checking win rates against specified environment
         "debug_mode": False, # used for checking whether NaN exists in one of policy outputs
         
-        "encoder" : "encoder_raw3",
-        "rewarder" : "rewarder_se",
-        "model" : "ppo_attention2",
+        "encoder" : "encoder_highpass_defense",
+        "rewarder" : "rewarder_highpass",
+        "model" : "ppo_conv1d_large",
 
-        "env_evaluation":'11_vs_11_stochastic',
+        "env_evaluation":'11_vs_11_hard_stochastic',
         #"visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
 
     }
