@@ -119,7 +119,7 @@ class FeatureEncoder:
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
         else:
             avail[SLIDE] = 0
-            if ball_x > 0.8 and (ball_y < -0.34 or ball_y > 0.34):
+            if ball_x > 0.85 and (ball_y < -0.34 or ball_y > 0.34):
                 avail[LONG_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0
                 
             
