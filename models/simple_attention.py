@@ -7,36 +7,43 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
-class PPO(nn.Module):
+class Model(nn.Module):
     def __init__(self, arg_dict, device=None):
-        super(PPO, self).__init__()
+        super(Model, self).__init__()
         self.device=None
         if device:
             self.device = device
 
         self.arg_dict = arg_dict
 
-        self.fc_player = nn.Linear(arg_dict["feature_dims"]["player"],64)  
-        self.fc_ball = nn.Linear(arg_dict["feature_dims"]["ball"],64)
-        self.fc_left = nn.Linear(arg_dict["feature_dims"]["left_team"],48)
-        self.fc_right  = nn.Linear(arg_dict["feature_dims"]["right_team"],48)
-        self.fc_left_closest = nn.Linear(arg_dict["feature_dims"]["left_team_closest"],48)
-        self.fc_right_closest = nn.Linear(arg_dict["feature_dims"]["right_team_closest"],48)
+        self.fc_player = nn.Linear(arg_dict["feature_dims"]["player"],128)
+        self.fc_player2 = nn.Linear(128,128)       
         
-        self.conv1d_left = nn.Conv1d(48, 36, 1, stride=1)
-        self.conv1d_right = nn.Conv1d(48, 36, 1, stride=1)
-        self.fc_left2 = nn.Linear(36*10,96)
-        self.fc_right2 = nn.Linear(36*11,96)
-        self.fc_cat = nn.Linear(96+96+64+64+48+48,arg_dict["lstm_size"])
+        self.fc_ball = nn.Linear(arg_dict["feature_dims"]["ball"],96)
+        self.fc_ball2 = nn.Linear(96,96)
         
-        self.norm_player = nn.LayerNorm(64)
-        self.norm_ball = nn.LayerNorm(64)
-        self.norm_left = nn.LayerNorm(48)
-        self.norm_left2 = nn.LayerNorm(96)
-        self.norm_left_closest = nn.LayerNorm(48)
-        self.norm_right = nn.LayerNorm(48)
-        self.norm_right2 = nn.LayerNorm(96)
-        self.norm_right_closest = nn.LayerNorm(48)
+        self.fc_left = nn.Linear(arg_dict["feature_dims"]["left_team"],128)
+        self.fc_left2 = nn.Linear(128,128)
+        self.fc_right  = nn.Linear(arg_dict["feature_dims"]["right_team"],128)
+        self.fc_right2  = nn.Linear(128,128)
+        
+        self.fc_player_left_q = nn.Linear(128,64)
+        self.fc_left_k = nn.Linear(128,64)
+        self.fc_player_right_q = nn.Linear(128,64)
+        self.fc_right_k = nn.Linear(128,64)
+
+        
+        self.fc_cat = nn.Linear(128+96+128+128,arg_dict["lstm_size"])
+        
+        self.norm_player = nn.LayerNorm(128)
+        self.norm_player2 = nn.LayerNorm(128)
+        self.norm_ball = nn.LayerNorm(96)
+        self.norm_ball2 = nn.LayerNorm(96)
+        self.norm_left = nn.LayerNorm(128)
+        self.norm_left2 = nn.LayerNorm(128)
+        self.norm_right = nn.LayerNorm(128)
+        self.norm_right2 = nn.LayerNorm(128)
+
         self.norm_cat = nn.LayerNorm(arg_dict["lstm_size"])
         
         self.lstm  = nn.LSTM(arg_dict["lstm_size"],arg_dict["lstm_size"])
@@ -70,25 +77,41 @@ class PPO(nn.Module):
         right_closest_state = state_dict["right_closest"]
         avail = state_dict["avail"]
         
-        player_embed = self.norm_player(self.fc_player(player_state))
-        ball_embed = self.norm_ball(self.fc_ball(ball_state))
-        left_team_embed = self.norm_left(self.fc_left(left_team_state))  # horizon, batch, n, dim
-        left_closest_embed = self.norm_left_closest(self.fc_left_closest(left_closest_state))
-        right_team_embed = self.norm_right(self.fc_right(right_team_state))
-        right_closest_embed = self.norm_right_closest(self.fc_right_closest(right_closest_state))
+        player_embed = F.relu(self.norm_player(self.fc_player(player_state)))
+        player_embed = self.norm_player2(self.fc_player2(player_embed))
+        ball_embed   = F.relu(self.norm_ball(self.fc_ball(ball_state)))
+        ball_embed   = self.norm_ball2(self.fc_ball2(ball_embed))
         
-        [horizon, batch_size, n_player, dim] = left_team_embed.size()
-        left_team_embed = left_team_embed.view(horizon*batch_size, n_player, dim).permute(0,2,1)         # horizon * batch, dim1, n
-        left_team_embed = F.relu(self.conv1d_left(left_team_embed)).permute(0,2,1)                       # horizon * batch, n, dim2
-        left_team_embed = left_team_embed.reshape(horizon*batch_size, -1).view(horizon,batch_size,-1)    # horizon, batch, n * dim2
-        left_team_embed = F.relu(self.norm_left2(self.fc_left2(left_team_embed)))
+        left_team_embed = F.relu(self.norm_left(self.fc_left(left_team_state)))  # horizon, batch, n, dim
+        left_team_embed = F.relu(self.norm_left2(self.fc_left2(left_team_embed)))  # horizon, batch, n, dim
         
-        right_team_embed = right_team_embed.view(horizon*batch_size, n_player+1, dim).permute(0,2,1)  # horizon * batch, dim1, n
-        right_team_embed = F.relu(self.conv1d_right(right_team_embed)).permute(0,2,1)  # horizon * batch, n * dim2
-        right_team_embed = right_team_embed.reshape(horizon*batch_size, -1).view(horizon,batch_size,-1)
+        right_team_embed = F.relu(self.norm_right(self.fc_right(right_team_state)))
         right_team_embed = F.relu(self.norm_right2(self.fc_right2(right_team_embed)))
         
-        cat = torch.cat([player_embed, ball_embed, left_team_embed, right_team_embed, left_closest_embed, right_closest_embed], 2)
+        player_left_q = self.fc_player_left_q(player_embed)                                # horizon, batch, dim
+        left_team_k = self.fc_left_k(left_team_embed)                                      # horizon, batch, n, dim
+        [horizon, batch_size, n_player, f_dim] = left_team_k.size()
+        player_left_q = player_left_q.view(horizon*batch_size, 1, f_dim)                   # horizon*batch, 1,   dim1
+        left_team_k = left_team_k.view(horizon*batch_size, n_player, f_dim).permute(0,2,1) # horizon*batch, dim1, n
+        attention = F.softmax(torch.bmm(player_left_q, left_team_k)/8, dim=2)                # horizon*batch, 1    , n
+        attention = attention.view(horizon, batch_size, -1).unsqueeze(3)                   # horizon, batch, n, 1
+        left_team = left_team_embed*attention                                              # horizon, batch, n, dim
+        left_team = left_team.permute(0,1,3,2)
+        left_team = torch.sum(left_team, axis=3)
+        
+        player_right_q = self.fc_player_right_q(player_embed)                                # horizon, batch, dim
+        right_team_k = self.fc_right_k(right_team_embed)                                      # horizon, batch, n, dim
+        [horizon, batch_size, n_player, f_dim] = right_team_k.size()
+        player_right_q = player_right_q.view(horizon*batch_size, 1, f_dim)                   # horizon*batch, 1,   dim1
+        right_team_k = right_team_k.view(horizon*batch_size, n_player, f_dim).permute(0,2,1) # horizon*batch, dim1, n
+        attention = F.softmax(torch.bmm(player_right_q, right_team_k)/8, dim=2)                # horizon*batch, 1    , n
+        attention = attention.view(horizon, batch_size, -1).unsqueeze(3)                   # horizon, batch, n, 1
+        right_team = right_team_embed*attention                                              # horizon, batch, n, dim
+        right_team = right_team.permute(0,1,3,2)
+        right_team = torch.sum(right_team, axis=3)
+        
+        
+        cat = torch.cat([player_embed, ball_embed, left_team, right_team], 2)
         cat = F.relu(self.norm_cat(self.fc_cat(cat)))
         h_in = state_dict["hidden"]
         out, h_out = self.lstm(cat, h_in)
@@ -217,74 +240,3 @@ class PPO(nn.Module):
         return s, a, m, r, s_prime, done_mask, prob, need_move
     
 
-    def train_net(self, data):
-        data_with_adv = []
-        
-        tot_loss_lst = []
-        pi_loss_lst = []
-        entropy_lst = []
-        move_entropy_lst = []
-        v_loss_lst = []
-
-        for mini_batch in data:
-            s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
-            with torch.no_grad():
-                pi, pi_move, v, _ = self.forward(s)
-                pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
-
-            td_target = r + self.gamma * v_prime * done_mask
-            delta = td_target - v                           # [horizon * batch_size * 1]
-            delta = delta.detach().cpu().numpy()
-
-            advantage_lst = []
-            advantage = np.array([0])
-            for delta_t in delta[::-1]:
-                advantage = self.gamma * self.lmbda * advantage + delta_t           
-                advantage_lst.append(advantage)
-            advantage_lst.reverse()
-            advantage = torch.tensor(advantage_lst, dtype=torch.float, device=self.device)
-            
-            data_with_adv.append((s, a, m, r, s_prime, done_mask, prob, need_move, td_target, advantage))
-        
-        for i in range(self.K_epoch):
-            for mini_batch in data_with_adv:
-                s, a, m, r, s_prime, done_mask, prob, need_move, td_target, advantage = mini_batch
-                pi, pi_move, v, _ = self.forward(s)
-                pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
-                
-                pi_a = pi.gather(2,a)
-                pi_m = pi_move.gather(2,m)
-                pi_am = pi_a*(1-need_move + need_move*pi_m)
-                ratio = torch.exp(torch.log(pi_am) - torch.log(prob))  # a/b == exp(log(a)-log(b))
-
-                surr1 = ratio * advantage
-                surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-#                 entropy = -torch.sum(pi*torch.log(pi+ 1e-7), dim=2, keepdim=True)
-#                 move_entropy = -need_move*(pi_m*torch.log(pi_m+1e-7), dim=2, keepdim=True)
-                entropy = -torch.log(pi_am)
-                move_entropy = -need_move*torch.log(pi_m)
-
-                surr_loss = -torch.min(surr1, surr2)
-                v_loss = F.smooth_l1_loss(v, td_target.detach())
-#                 entropy_loss = -1*self.entropy_coef*entropy -1*self.move_entropy_coef*move_entropy
-                entropy_loss = -1*self.entropy_coef*entropy
-                loss = surr_loss + v_loss + entropy_loss.mean()
-                loss = loss.mean()
-                
-                self.optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(self.parameters(), 3.0)
-                self.optimizer.step()
-                
-                tot_loss_lst.append(loss.item())
-                pi_loss_lst.append(surr_loss.mean().item())
-                v_loss_lst.append(v_loss.item())
-                entropy_lst.append(entropy.mean().item())
-                n_need_move = torch.sum(need_move).item()
-                if n_need_move == 0:
-                    move_entropy_lst.append(0)
-                else:
-                    move_entropy_lst.append((torch.sum(move_entropy)/n_need_move).item())
-                
-        return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst), np.mean(move_entropy_lst)
-                

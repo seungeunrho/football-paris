@@ -7,50 +7,51 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
-class PPO(nn.Module):
+class Model(nn.Module):
     def __init__(self, arg_dict, device=None):
-        super(PPO, self).__init__()
+        super(Model, self).__init__()
         self.device=None
         if device:
             self.device = device
 
+        self.arg_dict = arg_dict
+
         self.fc_player = nn.Linear(arg_dict["feature_dims"]["player"],64)  
         self.fc_ball = nn.Linear(arg_dict["feature_dims"]["ball"],64)
-        self.fc_left = nn.Linear(arg_dict["feature_dims"]["left_team"],32)
-        self.fc_right  = nn.Linear(arg_dict["feature_dims"]["right_team"],32)
-        self.fc_left_closest = nn.Linear(arg_dict["feature_dims"]["left_team_closest"],32)
-        self.fc_right_closest = nn.Linear(arg_dict["feature_dims"]["right_team_closest"],32)
+        self.fc_left = nn.Linear(arg_dict["feature_dims"]["left_team"],48)
+        self.fc_right  = nn.Linear(arg_dict["feature_dims"]["right_team"],48)
+        self.fc_left_closest = nn.Linear(arg_dict["feature_dims"]["left_team_closest"],48)
+        self.fc_right_closest = nn.Linear(arg_dict["feature_dims"]["right_team_closest"],48)
         
-        self.conv1d_left = nn.Conv1d(32, 32, 1, stride=1)
-        self.conv1d_right = nn.Conv1d(32, 32, 1, stride=1)
-        self.fc_left2 = nn.Linear(32*10,96)
-        self.fc_right2 = nn.Linear(32*10,96)
-        self.fc_cat = nn.Linear(96+96+64+64+32+32,arg_dict["lstm_size"])
+        self.conv1d_left = nn.Conv1d(48, 36, 1, stride=1)
+        self.conv1d_right = nn.Conv1d(48, 36, 1, stride=1)
+        self.fc_left2 = nn.Linear(36*10,96)
+        self.fc_right2 = nn.Linear(36*11,96)
+        self.fc_cat = nn.Linear(96+96+64+64+48+48,arg_dict["lstm_size"])
         
         self.norm_player = nn.LayerNorm(64)
         self.norm_ball = nn.LayerNorm(64)
-        self.norm_left = nn.LayerNorm(32)
+        self.norm_left = nn.LayerNorm(48)
         self.norm_left2 = nn.LayerNorm(96)
-        self.norm_left_closest = nn.LayerNorm(32)
-        self.norm_right = nn.LayerNorm(32)
+        self.norm_left_closest = nn.LayerNorm(48)
+        self.norm_right = nn.LayerNorm(48)
         self.norm_right2 = nn.LayerNorm(96)
-        self.norm_right_closest = nn.LayerNorm(32)
+        self.norm_right_closest = nn.LayerNorm(48)
         self.norm_cat = nn.LayerNorm(arg_dict["lstm_size"])
         
         self.lstm  = nn.LSTM(arg_dict["lstm_size"],arg_dict["lstm_size"])
 
-        self.fc_pi_a1 = nn.Linear(arg_dict["lstm_size"], 128)
-        self.fc_pi_a2 = nn.Linear(128, 12)
-        self.norm_pi_a1 = nn.LayerNorm(128)
+        self.fc_pi_a1 = nn.Linear(arg_dict["lstm_size"], 164)
+        self.fc_pi_a2 = nn.Linear(164, 12)
+        self.norm_pi_a1 = nn.LayerNorm(164)
         
-        self.fc_pi_m1 = nn.Linear(arg_dict["lstm_size"], 128)
-        self.fc_pi_m2 = nn.Linear(128, 8)
-        self.norm_pi_m1 = nn.LayerNorm(128)
+        self.fc_pi_m1 = nn.Linear(arg_dict["lstm_size"], 164)
+        self.fc_pi_m2 = nn.Linear(164, 8)
+        self.norm_pi_m1 = nn.LayerNorm(164)
 
-        self.fc_v1 = nn.Linear(arg_dict["lstm_size"], 128)
-        self.norm_v1 = nn.LayerNorm(128)
-        self.fc_v2 = nn.Linear(128, 1,  bias=False)
-        self.pool = nn.AdaptiveAvgPool2d((1,None))
+        self.fc_v1 = nn.Linear(arg_dict["lstm_size"], 164)
+        self.norm_v1 = nn.LayerNorm(164)
+        self.fc_v2 = nn.Linear(164, 1,  bias=False)
         self.optimizer = optim.Adam(self.parameters(), lr=arg_dict["learning_rate"])
 
         self.gamma = arg_dict["gamma"]
@@ -58,6 +59,7 @@ class PPO(nn.Module):
         self.lmbda = arg_dict["lmbda"]
         self.eps_clip = 0.1
         self.entropy_coef = arg_dict["entropy_coef"]
+        self.move_entropy_coef = arg_dict["move_entropy_coef"]
         
     def forward(self, state_dict):
         player_state = state_dict["player"]          
@@ -81,7 +83,7 @@ class PPO(nn.Module):
         left_team_embed = left_team_embed.reshape(horizon*batch_size, -1).view(horizon,batch_size,-1)    # horizon, batch, n * dim2
         left_team_embed = F.relu(self.norm_left2(self.fc_left2(left_team_embed)))
         
-        right_team_embed = right_team_embed.view(horizon*batch_size, n_player, dim).permute(0,2,1)  # horizon * batch, dim1, n
+        right_team_embed = right_team_embed.view(horizon*batch_size, n_player+1, dim).permute(0,2,1)  # horizon * batch, dim1, n
         right_team_embed = F.relu(self.conv1d_right(right_team_embed)).permute(0,2,1)  # horizon * batch, n * dim2
         right_team_embed = right_team_embed.reshape(horizon*batch_size, -1).view(horizon,batch_size,-1)
         right_team_embed = F.relu(self.norm_right2(self.fc_right2(right_team_embed)))
@@ -216,51 +218,70 @@ class PPO(nn.Module):
     
 
     def train_net(self, data):
+        data_with_adv = []
+        
         tot_loss_lst = []
         pi_loss_lst = []
         entropy_lst = []
+        move_entropy_lst = []
         v_loss_lst = []
-        for i in range(self.K_epoch):
-            for mini_batch in data:
-                s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
+
+        for mini_batch in data:
+            s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
+            with torch.no_grad():
                 pi, pi_move, v, _ = self.forward(s)
                 pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
 
-                td_target = r + self.gamma * v_prime * done_mask
-                delta = td_target - v                           # [horizon * batch_size * 1]
-                delta = delta.detach().cpu().numpy()
+            td_target = r + self.gamma * v_prime * done_mask
+            delta = td_target - v                           # [horizon * batch_size * 1]
+            delta = delta.detach().cpu().numpy()
 
-                advantage_lst = []
-                advantage = np.array([0])
-                for delta_t in delta[::-1]:
-                    advantage = self.gamma * self.lmbda * advantage + delta_t           
-                    advantage_lst.append(advantage)
-                advantage_lst.reverse()
-                advantage = torch.tensor(advantage_lst, dtype=torch.float, device=self.device)
-
+            advantage_lst = []
+            advantage = np.array([0])
+            for delta_t in delta[::-1]:
+                advantage = self.gamma * self.lmbda * advantage + delta_t           
+                advantage_lst.append(advantage)
+            advantage_lst.reverse()
+            advantage = torch.tensor(advantage_lst, dtype=torch.float, device=self.device)
+            
+            data_with_adv.append((s, a, m, r, s_prime, done_mask, prob, need_move, td_target, advantage))
+        
+        for i in range(self.K_epoch):
+            for mini_batch in data_with_adv:
+                s, a, m, r, s_prime, done_mask, prob, need_move, td_target, advantage = mini_batch
+                pi, pi_move, v, _ = self.forward(s)
+                pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
+                
                 pi_a = pi.gather(2,a)
                 pi_m = pi_move.gather(2,m)
-                pi_am = pi_a - pi_a*need_move*(1-pi_m)
+                pi_am = pi_a*(1-need_move + need_move*pi_m)
                 ratio = torch.exp(torch.log(pi_am) - torch.log(prob))  # a/b == exp(log(a)-log(b))
 
                 surr1 = ratio * advantage
                 surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-                entropy = -torch.sum(pi*torch.log(pi+ 1e-7), dim=2, keepdim=True)
+                entropy = -torch.log(pi_am)
+                move_entropy = -need_move*torch.log(pi_m)
 
                 surr_loss = -torch.min(surr1, surr2)
                 v_loss = F.smooth_l1_loss(v, td_target.detach())
                 entropy_loss = -1*self.entropy_coef*entropy
-                loss = surr_loss + v_loss + entropy_loss
+                loss = surr_loss + v_loss + entropy_loss.mean()
                 loss = loss.mean()
                 
                 self.optimizer.zero_grad()
                 loss.backward()
+                nn.utils.clip_grad_norm_(self.parameters(), 3.0)
                 self.optimizer.step()
                 
                 tot_loss_lst.append(loss.item())
                 pi_loss_lst.append(surr_loss.mean().item())
                 v_loss_lst.append(v_loss.item())
                 entropy_lst.append(entropy.mean().item())
+                n_need_move = torch.sum(need_move).item()
+                if n_need_move == 0:
+                    move_entropy_lst.append(0)
+                else:
+                    move_entropy_lst.append((torch.sum(move_entropy)/n_need_move).item())
                 
-        return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst) 
+        return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst), np.mean(move_entropy_lst)
                 

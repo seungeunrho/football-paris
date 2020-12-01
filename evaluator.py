@@ -60,9 +60,9 @@ def get_action(a_prob, m_prob):
 
 def evaluator(center_model, signal_queue, summary_queue, arg_dict):
     print("Evaluator process started")
-    fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
-    rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
-    imported_model = importlib.import_module("Model." + arg_dict["model"])
+    fe_module = importlib.import_module("encoders." + arg_dict["encoder"])
+    rewarder = importlib.import_module("rewarders." + arg_dict["rewarder"])
+    imported_model = importlib.import_module("models." + arg_dict["model"])
     
     fe = fe_module.FeatureEncoder()
     model = center_model

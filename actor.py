@@ -63,9 +63,9 @@ def get_action(a_prob, m_prob):
 def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
     os.environ['OPENBLAS_NUM_THREADS'] = '1'
     print("Actor process {} started".format(actor_num))
-    fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
-    rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
-    imported_model = importlib.import_module("Model." + arg_dict["model"])
+    fe_module = importlib.import_module("encoders." + arg_dict["encoder"])
+    rewarder = importlib.import_module("rewarders." + arg_dict["rewarder"])
+    imported_model = importlib.import_module("models." + arg_dict["model"])
 
     # check whther to use visdom or not
     check_visdom = 'visdom_server' in arg_dict
@@ -73,7 +73,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
         drawer = Drawer(arg_dict['visdom_server'])
     
     fe = fe_module.FeatureEncoder()
-    model = imported_model.PPO(arg_dict)
+    model = imported_model.Model(arg_dict)
     model.load_state_dict(center_model.state_dict())
     
     env = football_env.create_environment(env_name=arg_dict["env"], representation="raw", stacked=False, logdir='/tmp/football', \
@@ -181,14 +181,14 @@ def select_opponent(arg_dict):
 def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
     print("Actor process {} started".format(actor_num))
     cpu_device = torch.device('cpu')
-    fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
-    rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
-    imported_model = importlib.import_module("Model." + arg_dict["model"])
+    fe_module = importlib.import_module("encoders." + arg_dict["encoder"])
+    rewarder = importlib.import_module("rewarders." + arg_dict["rewarder"])
+    imported_model = importlib.import_module("models." + arg_dict["model"])
     
     fe = fe_module.FeatureEncoder()
-    model = imported_model.PPO(arg_dict)
+    model = imported_model.Model(arg_dict)
     model.load_state_dict(center_model.state_dict())
-    opp_model = imported_model.PPO(arg_dict)
+    opp_model = imported_model.Model(arg_dict)
     
     env = football_env.create_environment(env_name=arg_dict["env"], number_of_right_players_agent_controls=1, representation="raw", \
                                           stacked=False, logdir='/tmp/football', write_goal_dumps=False, write_full_episode_dumps=False, \

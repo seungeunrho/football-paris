@@ -54,13 +54,13 @@ def main(arg_dict):
     pp = pprint.PrettyPrinter(indent=4)
     torch.set_num_threads(1)
     
-    fe = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
+    fe = importlib.import_module("encoders." + arg_dict["encoder"])
     fe = fe.FeatureEncoder()
     arg_dict["feature_dims"] = fe.get_feature_dims()
     
-    model = importlib.import_module("Model." + arg_dict["model"])
+    model = importlib.import_module("models." + arg_dict["model"])
     cpu_device = torch.device('cpu')
-    center_model = model.PPO(arg_dict)
+    center_model = model.Model(arg_dict)
     if arg_dict["trained_model_path"]:
         checkpoint = torch.load(arg_dict["trained_model_path"], map_location=cpu_device)
         optimization_step = checkpoint['optimization_step']
@@ -125,8 +125,7 @@ if __name__ == '__main__':
         "gamma" : 0.993,
         "lmbda" : 0.96,
         "entropy_coef" : 0.0001,
-        "move_entropy_coef" : 0.00002,
-#         "trained_model_path" : "logs/[11-29]00.35.38/model_112048128.tar",   # default : None
+    #         "trained_model_path" : "logs/[11-29]00.35.38/model_112048128.tar",   # default : None
         "trained_model_path" : None,
         "print_mode" : False,
         "latest_ratio" : 0.5,
@@ -138,8 +137,8 @@ if __name__ == '__main__':
 
         "check_wr": False, # used for checking win rates against specified environment
         "debug_mode": False, # used for checking whether NaN exists in one of policy outputs
-        
-        "encoder" : "encoder_highpass_defense",
+
+        "encoder" : "encoder_raw",
         "rewarder" : "rewarder_highpass",
         "model" : "ppo_conv1d_large",
 
