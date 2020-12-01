@@ -22,32 +22,23 @@ def save_args(arg_dict):
     f.write(args_info)
     f.close()
 
-def copy_models(dir_src, dir_dst, num_copy = 20, sample_exponentially = True): # src: source, dst: destination
+def copy_models(dir_src, dir_dst): # src: source, dst: destination
     # retireve list of models
     l_cands = [f for f in os.listdir(dir_src) if os.path.isfile(os.path.join(dir_src, f)) and 'model_' in f]
     l_cands = sorted(l_cands, key=lambda x: int(x.split('_')[-1].split('.')[0]))
-    print(f"\n{len(l_cands)} models saved in the given directory")
-
-    num_copy = min(num_copy, len(l_cands))
-    if sample_exponentially:
-        idx_tocopy = sorted(set(int(np.exp(np.log(len(l_cands)) /num_copy) ** i) for i in range(num_copy)), key=lambda x: x)
-        #print(idx_tocopy)
-        l_tocopy = [l_cands[-idx] for idx in idx_tocopy]
-    else:
-        l_tocopy = l_cands[-num_copy:]
-
-    print(f"models to be copied: {l_tocopy}\n")
-    for m in l_tocopy:
+    
+    print(f"models to be copied: {l_cands}")
+    for m in l_cands:
         shutil.copyfile(os.path.join(dir_src, m), os.path.join(dir_dst, m))
+    print(f"{len(l_cands)} models copied in the given directory")
     
 def main(arg_dict):
     os.environ['OPENBLAS_NUM_THREADS'] = '1'
-    
     cur_time = datetime.now() + timedelta(hours = 9)
     arg_dict["log_dir"] = "logs/" + cur_time.strftime("[%m-%d]%H.%M.%S")
     save_args(arg_dict)
     if arg_dict["trained_model_path"] and 'kaggle' in arg_dict['env']: 
-        copy_models(os.path.dirname(arg_dict['trained_model_path']), arg_dict['log_dir'], arg_dict['num_copy'], arg_dict['sample_exponentially'])
+        copy_models(os.path.dirname(arg_dict['trained_model_path']), arg_dict['log_dir'])
 
     np.set_printoptions(precision=3)
     np.set_printoptions(suppress=True)
@@ -61,6 +52,7 @@ def main(arg_dict):
     model = importlib.import_module("models." + arg_dict["model"])
     cpu_device = torch.device('cpu')
     center_model = model.Model(arg_dict)
+    
     if arg_dict["trained_model_path"]:
         checkpoint = torch.load(arg_dict["trained_model_path"], map_location=cpu_device)
         optimization_step = checkpoint['optimization_step']
@@ -68,7 +60,6 @@ def main(arg_dict):
         center_model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         arg_dict["optimization_step"] = optimization_step
         print("Trained model", arg_dict["trained_model_path"] ,"suffessfully loaded") 
-        
     else:
         optimization_step = 0
 
@@ -85,8 +76,8 @@ def main(arg_dict):
     data_queue = mp.Queue()
     signal_queue = mp.Queue()
     summary_queue = mp.Queue()
-    processes = []
     
+    processes = [] 
     p = mp.Process(target=learner, args=(center_model, data_queue, signal_queue, summary_queue, arg_dict))
     p.start()
     processes.append(p)
@@ -125,22 +116,18 @@ if __name__ == '__main__':
         "gamma" : 0.993,
         "lmbda" : 0.96,
         "entropy_coef" : 0.0001,
-    #         "trained_model_path" : "logs/[11-29]00.35.38/model_112048128.tar",   # default : None
-        "trained_model_path" : None,
+        "grad_clip" : 3.0,
+        "eps_clip" : 0.1,
+        "trained_model_path" : "logs/[12-01]17.07.17/model_0.tar",   # default : None
+    #     "trained_model_path" : None,
         "print_mode" : False,
         "latest_ratio" : 0.5,
         "latest_n_model" : 10,
 
-        # valid only when continuing from the previous experiments
-        "num_copy": 500, # number of models to be copied from the previous path
-        "sample_exponentially": False, # ways of choosing models to be copied from the previous path
-
-        "check_wr": False, # used for checking win rates against specified environment
-        "debug_mode": False, # used for checking whether NaN exists in one of policy outputs
-
         "encoder" : "encoder_raw",
         "rewarder" : "rewarder_highpass",
-        "model" : "ppo_conv1d_large",
+        "model" : "conv1d",
+        "algorithm" : "ppo",
 
         "env_evaluation":'11_vs_11_hard_stochastic',
     }

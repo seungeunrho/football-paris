@@ -124,11 +124,10 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
             
             signal_queue.put(1)
             data = get_data(queue, arg_dict, model)
-#             if not arg_dict['check_wr']:
             loss, pi_loss, v_loss, entropy, move_entropy = algo.train(model, data)
             optimization_step += arg_dict["batch_size"]*arg_dict["buffer_size"]*arg_dict["k_epoch"]
-
             print("step :", optimization_step, "loss", loss, "data_q", queue.qsize(), "summary_q", summary_queue.qsize())
+            
             loss_lst.append(loss)
             pi_loss_lst.append(pi_loss)
             v_loss_lst.append(v_loss)
