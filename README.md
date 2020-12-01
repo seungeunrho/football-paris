@@ -18,5 +18,10 @@ Implementations of self-play RL algorithms(PyTorch based)
 python3 train.py
 ```
 
+## learning system
+![](data/images/system.PNG)
+![](data/images/system2.PNG)
+
 ## training curves
 ![](data/images/trained_result.png)
+
