@@ -19,7 +19,7 @@ python3 train.py
 ```
 
 ## learning system
-![](data/images/system.PNG)
+<img src="data/images/system.PNG" height="300"></img>
 ![](data/images/system2.PNG)
 
 ## training curves
