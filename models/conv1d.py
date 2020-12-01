@@ -76,8 +76,8 @@ class Model(nn.Module):
         left_team_embed = left_team_embed.reshape(horizon*batch_size, -1).view(horizon,batch_size,-1)    # horizon, batch, n * dim2
         left_team_embed = F.relu(self.norm_left2(self.fc_left2(left_team_embed)))
         
-        right_team_embed = right_team_embed.view(horizon*batch_size, n_player+1, dim).permute(0,2,1)  # horizon * batch, dim1, n
-        right_team_embed = F.relu(self.conv1d_right(right_team_embed)).permute(0,2,1)  # horizon * batch, n * dim2
+        right_team_embed = right_team_embed.view(horizon*batch_size, n_player+1, dim).permute(0,2,1)    # horizon * batch, dim1, n
+        right_team_embed = F.relu(self.conv1d_right(right_team_embed)).permute(0,2,1)                   # horizon * batch, n * dim2
         right_team_embed = right_team_embed.reshape(horizon*batch_size, -1).view(horizon,batch_size,-1)
         right_team_embed = F.relu(self.norm_right2(self.fc_right2(right_team_embed)))
         

@@ -25,6 +25,7 @@ class Algo(nn.Module):
         move_entropy_lst = []
         v_loss_lst = []
 
+        # to calculate fixed advantages before update
         data_with_adv = []
         for mini_batch in data:
             s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch

@@ -10,7 +10,6 @@ from os import listdir
 from os.path import isfile, join
 import numpy as np
 
-from util import *
 from datetime import datetime, timedelta
 
 
@@ -56,7 +55,6 @@ def get_action(a_prob, m_prob):
         prob = prob_selected_a
 
     assert prob != 0, 'prob 0 ERROR!!!! a : {}, m:{}  {}, {}'.format(a,m,prob_selected_a,prob_selected_m)
-    
     
     return real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m
 
@@ -116,10 +114,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             obs, rew, done, info = env.step(real_action)
             fin_r = rewarder.calc_reward(rew, prev_obs[0], obs[0])
             state_prime_dict = fe.encode(obs[0])
-
-            # draw visdom
-            if (check_visdom and actor_num==0):
-                drawer.draw(obs[0])
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
@@ -138,9 +132,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
             
             if arg_dict['print_mode']:
                 print_status(steps,a,m,prob_selected_a,prob_selected_m,prev_obs,obs,fin_r,tot_reward)
-            
             loop_t += time.time()-init_t
-            
             
             if done:
                 if score > 0:
@@ -160,9 +152,6 @@ def select_opponent(arg_dict):
     model_num_lst.sort()
             
     coin = random.random()
-
-    arg_dict["latest_n_model"]
-    
     if coin<arg_dict["latest_ratio"]:
         if len(model_num_lst) > arg_dict["latest_n_model"]:
             opp_model_num = random.randint(len(model_num_lst)-arg_dict["latest_n_model"],len(model_num_lst)-1)
@@ -196,7 +185,6 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
 
     n_epi = 0
     rollout = []
-    cache_bkup = []
     while True: # episode loop
         opp_model_num, opp_model_path = select_opponent(arg_dict)
         checkpoint = torch.load(opp_model_path, map_location=cpu_device)
@@ -218,7 +206,6 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
         
         while not done:  # step loop
             init_t = time.time()
-            
             is_stopped = False
             while signal_queue.qsize() > 0:
                 time.sleep(0.02)
@@ -258,9 +245,6 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
                 data_queue.put(rollout)
                 rollout = []
                 model.load_state_dict(center_model.state_dict())
-            cache_bkup.append(transition)
-            if len(cache_bkup) > arg_dict["rollout_len"]:
-                cache_bkup.pop(0)
 
             steps += 1
             score += rew
