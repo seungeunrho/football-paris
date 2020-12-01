@@ -20,7 +20,7 @@ python3 train.py
 
 ## learning system
 <img src="data/images/system.PNG" height="300"></img>
-![](data/images/system2.PNG)
+<img src="data/images/system2.PNG" height="300"></img>
 
 ## training curves
 ![](data/images/trained_result.png)
