@@ -1,4 +1,5 @@
 torch
 tensorboardX
 matplotlib
+kaggle-environments
 visdom==0.1.8.9
