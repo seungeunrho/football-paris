@@ -213,6 +213,8 @@ class FeatureEncoder:
         NO_OP, MOVE, LONG_PASS, HIGH_PASS, SHORT_PASS, SHOT, SPRINT, RELEASE_MOVE, \
                                                       RELEASE_SPRINT, SLIDE, DRIBBLE, RELEASE_DRIBBLE = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
         
+        ball_x, ball_y, _ = obs['ball']
+        
         # When opponents owning ball ...
         if obs['ball_owned_team'] == 1: # opponents owning ball
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
@@ -220,6 +222,8 @@ class FeatureEncoder:
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
         else:
             avail[SLIDE] = 0
+            if ball_x > 0.8 and (ball_y < -0.34 or ball_y > 0.34):
+                avail[LONG_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0
             
         # Dealing with sticky actions
         sticky_actions = obs['sticky_actions']
@@ -236,7 +240,7 @@ class FeatureEncoder:
             
         
         # if too far, no shot
-        ball_x, ball_y, _ = obs['ball']
+        
         if ball_x < 0.64 or ball_y < -0.27 or 0.27 < ball_y:
             avail[SHOT] = 0
         elif (0.64 <= ball_x and ball_x<=1.0) and (-0.27<=ball_y and ball_y<=0.27):
@@ -317,10 +321,10 @@ arg_dict = {
     "lmbda" : 0.96,
     "entropy_coef" : 0.0,
     "move_entropy_coef" : 0.0,
-    "trained_model_path" : "/kaggle_simulations/agent/model_30187008.tar",
+    "trained_model_path" : "/kaggle_simulations/agent/model_116249472.tar",
     "k_epoch" : 3,
     
-    "arg_max" : False
+    "arg_max" : True
 
 }
 arg_dict["feature_dims"] = fe.get_feature_dims()
