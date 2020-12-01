@@ -60,13 +60,6 @@ class Model(nn.Module):
         self.norm_v1 = nn.LayerNorm(164)
         self.fc_v2 = nn.Linear(164, 1,  bias=False)
         self.optimizer = optim.Adam(self.parameters(), lr=arg_dict["learning_rate"])
-
-        self.gamma = arg_dict["gamma"]
-        self.K_epoch = arg_dict["k_epoch"]
-        self.lmbda = arg_dict["lmbda"]
-        self.eps_clip = 0.1
-        self.entropy_coef = arg_dict["entropy_coef"]
-        self.move_entropy_coef = arg_dict["move_entropy_coef"]
         
     def forward(self, state_dict):
         player_state = state_dict["player"]          

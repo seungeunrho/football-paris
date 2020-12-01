@@ -8,8 +8,6 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import torch.multiprocessing as mp 
 from tensorboardX import SummaryWriter
-from algos.ppo import train_net
-
 
 def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst, v_loss_lst, \
                   entropy_lst, move_entropy_lst, optimization_step, self_play_board, win_evaluation, score_evaluation):
@@ -98,10 +96,13 @@ def get_data(queue, arg_dict, model):
 def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
     print("Learner process started")
     imported_model = importlib.import_module("models." + arg_dict["model"])
+    imported_algo = importlib.import_module("algos." + arg_dict["algorithm"])
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = imported_model.Model(arg_dict, device)
     model.load_state_dict(center_model.state_dict())
     model.optimizer.load_state_dict(center_model.optimizer.state_dict())
+    algo = imported_algo.Algo(arg_dict)
+    
     for state in model.optimizer.state.values():
         for k, v in state.items():
             if isinstance(v, torch.Tensor):
@@ -126,7 +127,7 @@ def learner(center_model, queue, signal_queue, summary_queue, arg_dict):
             signal_queue.put(1)
             data = get_data(queue, arg_dict, model)
             if not arg_dict['check_wr']:
-                loss, pi_loss, v_loss, entropy, move_entropy = train_net(model, data)
+                loss, pi_loss, v_loss, entropy, move_entropy = algo.train(model, data)
                 optimization_step += arg_dict["batch_size"]*arg_dict["buffer_size"]*arg_dict["k_epoch"]
                 
                 print("step :", optimization_step, "loss", loss, "data_q", queue.qsize(), "summary_q", summary_queue.qsize())

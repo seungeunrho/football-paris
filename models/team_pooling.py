@@ -44,11 +44,6 @@ class Model(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d((1,None))
         self.optimizer = optim.Adam(self.parameters(), lr=arg_dict["learning_rate"])
 
-        self.gamma = arg_dict["gamma"]
-        self.K_epoch = arg_dict["k_epoch"]
-        self.lmbda = arg_dict["lmbda"]
-        self.eps_clip = 0.1
-        self.entropy_coef = arg_dict["entropy_coef"]
         
     def forward(self, state_dict):
         player_state = state_dict["player"]          
@@ -196,54 +191,5 @@ class Model(nn.Module):
         
         
         return s, a, m, r, s_prime, done_mask, prob, need_move
-    
 
-    def train_net(self, data):
-        tot_loss_lst = []
-        pi_loss_lst = []
-        entropy_lst = []
-        v_loss_lst = []
-        for i in range(self.K_epoch):
-            for mini_batch in data:
-                s, a, m, r, s_prime, done_mask, prob, need_move = mini_batch
-                pi, pi_m, v, _ = self.forward(s)
-                pi_prime, pi_m_prime, v_prime, _ = self.forward(s_prime)
-
-                td_target = r + self.gamma * v_prime * done_mask
-                delta = td_target - v                           # [horizon * batch_size * 1]
-                delta = delta.detach().cpu().numpy()
-
-                advantage_lst = []
-                advantage = np.array([0])
-                for delta_t in delta[::-1]:
-                    advantage = self.gamma * self.lmbda * advantage + delta_t           
-                    advantage_lst.append(advantage)
-                advantage_lst.reverse()
-                advantage = torch.tensor(advantage_lst, dtype=torch.float, device=self.device)
-
-                pi_a = pi.gather(2,a)
-                pi_m = pi_m.gather(2,m)
-                pi_am = pi_a - pi_a*need_move*(1-pi_m)
-                ratio = torch.exp(torch.log(pi_am) - torch.log(prob))  # a/b == exp(log(a)-log(b))
-
-                surr1 = ratio * advantage
-                surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-                entropy = -torch.sum(pi*torch.log(pi+ 1e-8), dim=2, keepdim=True)
-
-                surr_loss = -torch.min(surr1, surr2)
-                v_loss = F.smooth_l1_loss(v, td_target.detach())
-                entropy_loss = -1*arg_dict["entropy_coef"]*entropy
-                loss = surr_loss + v_loss + entropy_loss
-                loss = loss.mean()
-                
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                
-                tot_loss_lst.append(loss.item())
-                pi_loss_lst.append(surr_loss.mean().item())
-                v_loss_lst.append(v_loss.item())
-                entropy_lst.append(entropy.mean().item())
-                
-        return np.mean(tot_loss_lst), np.mean(pi_loss_lst), np.mean(v_loss_lst), np.mean(entropy_lst) 
                 
