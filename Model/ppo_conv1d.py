@@ -251,7 +251,6 @@ class PPO(nn.Module):
                 v_loss = F.smooth_l1_loss(v, td_target.detach())
                 entropy_loss = -1*self.entropy_coef*entropy
                 loss = surr_loss + v_loss + entropy_loss
-#                 loss = surr_loss + v_loss
                 loss = loss.mean()
                 
                 self.optimizer.zero_grad()

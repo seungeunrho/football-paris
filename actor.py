@@ -9,13 +9,10 @@ import torch.multiprocessing as mp
 from os import listdir
 from os.path import isfile, join
 import numpy as np
-import pickle
-
 
 from util import *
 from datetime import datetime, timedelta
 
-# from Utils.drawer import Drawer
 
 def state_to_tensor(state_dict, h_in):
     player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
@@ -196,9 +193,6 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
     env = football_env.create_environment(env_name=arg_dict["env"], number_of_right_players_agent_controls=1, representation="raw", \
                                           stacked=False, logdir='/tmp/football', write_goal_dumps=False, write_full_episode_dumps=False, \
                                           render=False)
-#     check_visdom = 'visdom_server' in arg_dict
-#     if check_visdom:
-#         drawer = Drawer(arg_dict['visdom_server'])
 
     n_epi = 0
     rollout = []
@@ -254,10 +248,6 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
             fin_r = rewarder.calc_reward(rew, prev_obs, obs)
             state_prime_dict = fe.encode(obs)
 
-            # draw visdom
-#             if (check_visdom and actor_num==0):
-#                 drawer.draw(obs)
-            
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
             state_dict["hidden"] = (h1_in.numpy(), h2_in.numpy())

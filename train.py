@@ -39,8 +39,6 @@ def copy_models(dir_src, dir_dst, num_copy = 20, sample_exponentially = True): #
     print(f"models to be copied: {l_tocopy}\n")
     for m in l_tocopy:
         shutil.copyfile(os.path.join(dir_src, m), os.path.join(dir_dst, m))
-
-    #print(os.listdir(dir_dst))
     
 def main(arg_dict):
     os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -110,15 +108,10 @@ def main(arg_dict):
     
 
 if __name__ == '__main__':
-    # envs
-    #11_vs_11_easy_stochastic  : vs. easy_rule
-    #11_vs_11_stochastic  : vs. medium_rule
-    #11_vs_11_kaggle  : vs. self-play
-
+    
     # hyperparameters
     arg_dict = {
         "env": "11_vs_11_kaggle",
-#         "env": "11_vs_11_stochastic",
         "num_processes": 9,
         "batch_size": 32,   
         "buffer_size": 6,
@@ -133,8 +126,8 @@ if __name__ == '__main__':
         "lmbda" : 0.96,
         "entropy_coef" : 0.0001,
         "move_entropy_coef" : 0.00002,
-        "trained_model_path" : "logs/[11-29]00.35.38/model_112048128.tar",   # default : None
-#         "trained_model_path" : None,
+#         "trained_model_path" : "logs/[11-29]00.35.38/model_112048128.tar",   # default : None
+        "trained_model_path" : None,
         "print_mode" : False,
         "latest_ratio" : 0.5,
         "latest_n_model" : 10,
@@ -151,8 +144,6 @@ if __name__ == '__main__':
         "model" : "ppo_conv1d_large",
 
         "env_evaluation":'11_vs_11_hard_stochastic',
-        #"visdom_server":'172.20.41.242', # Set visdom server address if you want to use it
-
     }
     
     main(arg_dict)

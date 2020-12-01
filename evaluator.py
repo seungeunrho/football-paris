@@ -9,12 +9,10 @@ from torch.distributions import Categorical
 import torch.multiprocessing as mp 
 from os import listdir
 from os.path import isfile, join
-
-
 from util import *
 from datetime import datetime, timedelta
 
-# from Utils.drawer import Drawer
+
 
 def state_to_tensor(state_dict, h_in):
     player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
@@ -65,11 +63,6 @@ def evaluator(center_model, signal_queue, summary_queue, arg_dict):
     fe_module = importlib.import_module("FeatureEncoder." + arg_dict["encoder"])
     rewarder = importlib.import_module("Rewarder." + arg_dict["rewarder"])
     imported_model = importlib.import_module("Model." + arg_dict["model"])
-
-    # check whther to use visdom or not
-    check_visdom = 'visdom_server' in arg_dict
-    if check_visdom:
-        drawer = Drawer(arg_dict['visdom_server'])
     
     fe = fe_module.FeatureEncoder()
     model = center_model
@@ -123,10 +116,6 @@ def evaluator(center_model, signal_queue, summary_queue, arg_dict):
             obs, rew, done, info = env.step(real_action)
             fin_r = rewarder.calc_reward(rew, prev_obs[0], obs[0])
             state_prime_dict = fe.encode(obs[0])
-
-            # # draw visdom
-            # if (check_visdom and actor_num==0):
-            #     drawer.draw(obs[0])
             
             (h1_in, h2_in) = h_in
             (h1_out, h2_out) = h_out
