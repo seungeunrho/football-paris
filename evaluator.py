@@ -11,8 +11,6 @@ from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timedelta
 
-
-
 def state_to_tensor(state_dict, h_in):
     player_state = torch.from_numpy(state_dict["player"]).float().unsqueeze(0).unsqueeze(0)
     ball_state = torch.from_numpy(state_dict["ball"]).float().unsqueeze(0).unsqueeze(0)
@@ -33,7 +31,6 @@ def state_to_tensor(state_dict, h_in):
       "hidden" : h_in
     }
     return state_dict_tensor
-
 
 def get_action(a_prob, m_prob):
     a = Categorical(a_prob).sample().item()

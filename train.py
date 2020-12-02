@@ -102,8 +102,8 @@ if __name__ == '__main__':
     
     # hyperparameters
     arg_dict = {
-        "env": "11_vs_11_kaggle",
-        "num_processes": 9,
+        "env": "11_vs_11_kaggle",  
+        "num_processes": 30,
         "batch_size": 32,   
         "buffer_size": 6,
         "rollout_len": 30,
@@ -118,18 +118,17 @@ if __name__ == '__main__':
         "entropy_coef" : 0.0001,
         "grad_clip" : 3.0,
         "eps_clip" : 0.1,
-        "trained_model_path" : "logs/[12-01]17.07.17/model_0.tar",   # default : None
-    #     "trained_model_path" : None,
+        "trained_model_path" : None,
         "print_mode" : False,
         "latest_ratio" : 0.5,
         "latest_n_model" : 10,
 
-        "encoder" : "encoder_raw",
+        "encoder" : "encoder_basic",
         "rewarder" : "rewarder_highpass",
         "model" : "conv1d",
         "algorithm" : "ppo",
 
-        "env_evaluation":'11_vs_11_hard_stochastic',
+        "env_evaluation":'11_vs_11_hard_stochastic'  # for evaluation of self-play trained agent (like validation set in Supervised Learning)
     }
     
     main(arg_dict)

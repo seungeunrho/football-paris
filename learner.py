@@ -14,7 +14,6 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
     win, score, tot_reward, game_len = [], [], [], []
     loop_t, forward_t, wait_t = [], [], []
 
-
     for i in range(arg_dict["summary_game_window"]):
         game_data = summary_queue.get()
         if arg_dict["env"] == "11_vs_11_kaggle":

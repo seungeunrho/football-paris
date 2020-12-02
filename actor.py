@@ -64,11 +64,6 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
     fe_module = importlib.import_module("encoders." + arg_dict["encoder"])
     rewarder = importlib.import_module("rewarders." + arg_dict["rewarder"])
     imported_model = importlib.import_module("models." + arg_dict["model"])
-
-    # check whther to use visdom or not
-    check_visdom = 'visdom_server' in arg_dict
-    if check_visdom:
-        drawer = Drawer(arg_dict['visdom_server'])
     
     fe = fe_module.FeatureEncoder()
     model = imported_model.Model(arg_dict)
@@ -163,8 +158,6 @@ def select_opponent(arg_dict):
     model_name = "/model_"+str(model_num_lst[opp_model_num])+".tar"
     opp_model_path = arg_dict["log_dir"] + model_name
     return opp_model_num, opp_model_path
-            
-    
                 
                 
 def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_dict):
