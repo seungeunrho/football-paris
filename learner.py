@@ -16,14 +16,12 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
 
     for i in range(arg_dict["summary_game_window"]):
         game_data = summary_queue.get()
+        a,b,c,d,opp_num,t1,t2,t3 = game_data
         if arg_dict["env"] == "11_vs_11_kaggle":
-            a,b,c,d,opp_num,t1,t2,t3 = game_data
             if opp_num in self_play_board:
                 self_play_board[opp_num].append(a)
             else:
                 self_play_board[opp_num] = [a]
-        else:
-            a,b,c,d,t1,t2,t3 = game_data
 
         if 'env_evaluation' in arg_dict and opp_num==arg_dict['env_evaluation']:
             a,b,c,d,env_evaluation,t1,t2,t3 = game_data
@@ -37,6 +35,7 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
             loop_t.append(t1)
             forward_t.append(t2)
             wait_t.append(t3)
+            
     writer.add_scalar('game/win_rate', float(np.mean(win)), n_game)
     writer.add_scalar('game/score', float(np.mean(score)), n_game)
     writer.add_scalar('game/reward', float(np.mean(tot_reward)), n_game)
@@ -51,17 +50,17 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
     writer.add_scalar('train/entropy', np.mean(entropy_lst), n_game)
     writer.add_scalar('train/move_entropy', np.mean(move_entropy_lst), n_game)
 
-    if len(win_evaluation)>=arg_dict['summary_game_window']:
+    mini_window = max(1, int(arg_dict['summary_game_window']/3))
+    if len(win_evaluation)>=mini_window:
         writer.add_scalar('game/win_rate_evaluation', float(np.mean(win_evaluation)), n_game)
         writer.add_scalar('game/score_evaluation', float(np.mean(score_evaluation)), n_game)
         win_evaluation, score_evaluation = [], []
     
-    self_window = 3
     for opp_num in self_play_board:
-        if len(self_play_board[opp_num]) >= self_window:
+        if len(self_play_board[opp_num]) >= mini_window:
             label = 'self_play/'+opp_num
-            writer.add_scalar(label, np.mean(self_play_board[opp_num][:self_window]), n_game)
-            self_play_board[opp_num] = self_play_board[opp_num][self_window:]
+            writer.add_scalar(label, np.mean(self_play_board[opp_num][:mini_window]), n_game)
+            self_play_board[opp_num] = self_play_board[opp_num][mini_window:]
 
     return win_evaluation, score_evaluation
 

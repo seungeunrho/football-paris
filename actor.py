@@ -133,7 +133,7 @@ def actor(actor_num, center_model, data_queue, signal_queue, summary_queue, arg_
                 if score > 0:
                     win = 1
                 print("score",score,"total reward",tot_reward)
-                summary_data = (win, score, tot_reward, steps, loop_t/steps, forward_t/steps, wait_t/steps)
+                summary_data = (win, score, tot_reward, steps, 0, loop_t/steps, forward_t/steps, wait_t/steps)
                 summary_queue.put(summary_data)
 
 def select_opponent(arg_dict):
