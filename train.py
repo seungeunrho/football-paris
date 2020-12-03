@@ -99,32 +99,35 @@ def main(arg_dict):
     
 
 if __name__ == '__main__':
-    
-    # hyperparameters
+
     arg_dict = {
-        "env": "11_vs_11_kaggle",  
-        "num_processes": 30,
+        "env": "11_vs_11_kaggle",    
+        # "11_vs_11_kaggle" : environment used for self-play training
+        # "11_vs_11_stochastic" : environment used for training against fixed opponent(rule-based AI)
+        "num_processes": 30,  # should be less than the number of cpu cores in your workstation.
         "batch_size": 32,   
         "buffer_size": 6,
         "rollout_len": 30,
 
         "lstm_size" : 256,
         "k_epoch" : 3,
-        "summary_game_window" : 10,
-        "model_save_interval" : 300000,
         "learning_rate" : 0.0001,
         "gamma" : 0.993,
         "lmbda" : 0.96,
         "entropy_coef" : 0.0001,
         "grad_clip" : 3.0,
         "eps_clip" : 0.1,
-        "trained_model_path" : None,
+
+        "summary_game_window" : 10, 
+        "model_save_interval" : 300000,  # number of gradient updates bewteen saving model
+
+        "trained_model_path" : None, # use when you want to continue traning from given model.
+        "latest_ratio" : 0.5, # works only for self_play training. 
+        "latest_n_model" : 10, # works only for self_play training. 
         "print_mode" : False,
-        "latest_ratio" : 0.5,
-        "latest_n_model" : 10,
 
         "encoder" : "encoder_basic",
-        "rewarder" : "rewarder_highpass",
+        "rewarder" : "rewarder_basic",
         "model" : "conv1d",
         "algorithm" : "ppo",
 
