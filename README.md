@@ -4,7 +4,7 @@
 
 * Implementations of self-play RL from scratch with distributed actors 
 
-* Final version of agents ranked 8th/1141 at the competition (Gold medal)
+* Final version of agents currently ranked 8th/1141 at the competition (Gold prize)
 
 * Link to summary of our implementations(To be added)
 
