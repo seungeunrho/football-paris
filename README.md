@@ -24,8 +24,8 @@ python3 train.py
 ## training curves (vs rule base AI)
 ![](data/images/trained_result.png)
 (x-axis : # of episodes)
-1. Orange curve - vs. easy AI
-2. Blue - vs. medium AI 
+1. Orange curve - vs. easy level AI
+2. Blue - vs. medium level AI 
 
 ## learning system
 <img src="data/images/system.PNG" height="250"></img>
