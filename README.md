@@ -6,7 +6,7 @@
 
 * Final version of agents currently ranked 8th/1141 at the competition (Gold prize)
 
-* Link to summary of our implementations(To be added)
+* Link to detailed discription of our approach(To be added)
 
 
 ## Dependencies
