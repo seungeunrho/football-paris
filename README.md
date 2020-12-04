@@ -1,7 +1,10 @@
-# football-paris
-The exact codes used for the "google-research football competition"
+# Google Research Football Competition - liveinparis team
 
-* Our team "liveinparis" currently ranked 8th in Leader Board.
+* The exact codes used by the team "liveinparis" at [the kaggle football competition](https://www.kaggle.com/c/google-football)
+
+* Implementations of self-play RL from scratch with distributed actors 
+
+* Final version of agents ranked 8th/1141 at the competition (Gold medal)
 
 * Link to summary of our implementations(To be added)
 
@@ -14,20 +17,18 @@ The exact codes used for the "google-research football competition"
 
 ## Usage
 ```bash
-# Works only with Python 3.
-# e.g.
-python3 train.py
+python3 train.py 
+# You can find args and hyper-parameters at the "arg_dict" in train.py. 
 ```
 
 ## training curves (vs rule base AI)
 ![](data/images/trained_result.png)
-(x-axis == total number of episodes used for training)
-Orange : vs easy
-Blue : vs medium 
+(x-axis : # of episodes)
+1. Orange : vs easy
+2. Blue : vs medium 
 
 ## learning system
 <img src="data/images/system.PNG" height="300"></img>
-<img src="data/images/system2.PNG" height="300"></img>
 
 
 
