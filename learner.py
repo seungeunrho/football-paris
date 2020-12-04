@@ -24,7 +24,6 @@ def write_summary(writer, arg_dict, summary_queue, n_game, loss_lst, pi_loss_lst
                 self_play_board[opp_num] = [a]
 
         if 'env_evaluation' in arg_dict and opp_num==arg_dict['env_evaluation']:
-            a,b,c,d,env_evaluation,t1,t2,t3 = game_data
             win_evaluation.append(a)
             score_evaluation.append(b)
         else:

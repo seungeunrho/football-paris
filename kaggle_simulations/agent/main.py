@@ -5,8 +5,6 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import numpy as np
 import time, os
-# import psutil
-
 
 class PPO(nn.Module):
     def __init__(self, arg_dict, device=None):
@@ -187,8 +185,8 @@ class FeatureEncoder:
         left_closest_idx = np.argmin(left_team_distance)
         left_closest_state = left_team_state[left_closest_idx]
         
-        obs_right_team = np.array(obs['right_team'])
         
+        obs_right_team = np.array(obs['right_team'])
         obs_right_team_direction = np.array(obs['right_team_direction'])
         right_team_distance = np.linalg.norm(obs_right_team - obs['left_team'][player_num], axis=1, keepdims=True)
         right_team_speed = np.linalg.norm(obs_right_team_direction, axis=1, keepdims=True)
@@ -197,6 +195,8 @@ class FeatureEncoder:
                                            right_team_distance*2, right_team_tired), axis=1)
         right_closest_idx = np.argmin(right_team_distance)
         right_closest_state = right_team_state[right_closest_idx]
+        
+        
         
         state_dict = {"player": player_state,
                       "ball": ball_state,
@@ -214,7 +214,6 @@ class FeatureEncoder:
                                                       RELEASE_SPRINT, SLIDE, DRIBBLE, RELEASE_DRIBBLE = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
         
         ball_x, ball_y, _ = obs['ball']
-        
         # When opponents owning ball ...
         if obs['ball_owned_team'] == 1: # opponents owning ball
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
@@ -222,8 +221,9 @@ class FeatureEncoder:
             avail[LONG_PASS], avail[HIGH_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0, 0
         else:
             avail[SLIDE] = 0
-            if ball_x > 0.8 and (ball_y < -0.34 or ball_y > 0.34):
+            if ball_x > 0.85 and (ball_y < -0.34 or ball_y > 0.34):
                 avail[LONG_PASS], avail[SHORT_PASS], avail[SHOT], avail[DRIBBLE] = 0, 0, 0, 0
+                
             
         # Dealing with sticky actions
         sticky_actions = obs['sticky_actions']
@@ -261,7 +261,6 @@ class FeatureEncoder:
             avail = [1,0,0,0,0,0,0,0,0,0,0,0]
             avail[SHOT] = 1
             return np.array(avail)
-        
 
         return np.array(avail)
         
@@ -321,7 +320,7 @@ arg_dict = {
     "lmbda" : 0.96,
     "entropy_coef" : 0.0,
     "move_entropy_coef" : 0.0,
-    "trained_model_path" : "/kaggle_simulations/agent/model_116249472.tar",
+    "trained_model_path" : "kaggle_simulations/agent/model_133997184.tar",
     "k_epoch" : 3,
     
     "arg_max" : True
