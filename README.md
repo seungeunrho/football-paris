@@ -6,7 +6,7 @@
 
 * Final version of agents currently ranked 8th/1141 at the competition (Gold prize)
 
-* Link to detailed discription of our approach(To be added)
+* Detailed discription of our [approach](https://www.kaggle.com/c/google-football/discussion/201376)
 
 
 ## Dependencies
