@@ -217,7 +217,7 @@ def actor_self(actor_num, center_model, data_queue, signal_queue, summary_queue,
             t1 = time.time()
             with torch.no_grad():
                 a_prob, m_prob, _, h_out = model(state_dict_tensor)
-                opp_a_prob, opp_m_prob, _, opp_h_out = model(opp_state_dict_tensor)
+                opp_a_prob, opp_m_prob, _, opp_h_out = opp_model(opp_state_dict_tensor)
             forward_t += time.time()-t1 
             
             real_action, a, m, need_m, prob, prob_selected_a, prob_selected_m = get_action(a_prob, m_prob)

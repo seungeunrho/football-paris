@@ -7,10 +7,8 @@ import torch.multiprocessing as mp
 import numpy as np
 
 
-class Algo(nn.Module):
+class Algo():
     def __init__(self, arg_dict, device=None):
-        super(Algo, self).__init__()
-
         self.gamma = arg_dict["gamma"]
         self.K_epoch = arg_dict["k_epoch"]
         self.lmbda = arg_dict["lmbda"]
