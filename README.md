@@ -4,7 +4,7 @@
 
 * Implementations of self-play RL from scratch with distributed actors 
 
-* Final version of agents currently ranked 6th/1141 (gold prize)
+* Final version of agents ranked [6th/1141](https://www.kaggle.com/c/google-football/leaderboard) (gold prize)
 
 * You can find all the training details at [here](https://www.kaggle.com/c/google-football/discussion/201376)
 
