@@ -4,9 +4,9 @@
 
 * Implementations of self-play RL from scratch with distributed actors 
 
-* Final version of agents currently ranked 8th/1141 at the competition (Gold prize)
+* Final version of agents currently ranked 6th/1141 (gold prize)
 
-* Detailed discription of [our approach](https://www.kaggle.com/c/google-football/discussion/201376)
+* You can find all the training details at [here](https://www.kaggle.com/c/google-football/discussion/201376)
 
 
 ## Dependencies
@@ -30,5 +30,7 @@ python3 train.py
 ## learning system
 <img src="data/images/system.PNG" height="250"></img>
 
+Actor proceeds simulation and send rollouts(transition tuples of horizon length 30) to the central learner. Learner updates the agent with provided rollouts. Since we chose on-policy update algorithm, we used a trick to ensure perfect on-policyness(behavior policy and learning policy are equal). Actor periodically stops simulation process when the learner is updating the policy. Actor resumes simulation when it receives the newest model from the learner after training.
+We used 1 actor per 1 cpu core. Our final version of agent is trained with 30 cpu cores and 1 gpu for 370 hours (cpu: AMD Ryzen Threadripper 2950X, gpu : RTX 2080). This is equivalent to 450,000 episodes, and 133M times of mini batch updates(single mini batch composed of 32 rollouts, each rollout composed of 30 state transitions).
 
 
